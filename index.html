@@ -27,19 +27,24 @@
     <div class="login-card">
       <div class="logo lg">PK</div>
       <h1>PakKom Student Analytics</h1>
-      <p>Masuk dengan akun admin Firebase.</p>
+      <p id="loginDescription">Masuk sebagai administrator atau siswa.</p>
+      <div class="login-tabs">
+        <button type="button" class="login-tab active" data-role="admin">Admin</button>
+        <button type="button" class="login-tab" data-role="student">Siswa</button>
+      </div>
       <form id="loginForm">
-        <label>Email
-          <input id="email" type="email" autocomplete="username" required placeholder="admin@sekolah.sch.id">
+        <label id="loginIdentifierLabel">Email Admin
+          <input id="email" type="text" autocomplete="username" required placeholder="admin@sekolah.sch.id">
         </label>
-        <label>Password
+        <label>PIN / Password
           <div class="password-wrap">
-            <input id="password" type="password" autocomplete="current-password" required>
+            <input id="password" type="password" autocomplete="current-password" required placeholder="Masukkan password">
             <button type="button" id="togglePassword" class="icon-btn">👁</button>
           </div>
         </label>
         <button class="btn primary full" type="submit">Masuk</button>
-        <button class="btn link full" type="button" id="resetPassword">Lupa password?</button>
+        <button class="btn link full" type="button" id="resetPassword">Lupa password admin?</button>
+        <div id="loginHint" class="login-hint">Admin menggunakan email Firebase. Siswa menggunakan NIS + PIN.</div>
         <div id="loginMessage" class="message"></div>
       </form>
     </div>
@@ -53,21 +58,29 @@
       </div>
 
       <nav>
-        <button class="nav active" data-page="dashboard">⌂ <span>Dashboard</span></button>
-        <div class="nav-label">DATA AKADEMIK</div>
-        <button class="nav" data-page="upload">⇧ <span>Upload Leger</span></button>
-        <button class="nav" data-page="records">▣ <span>Data Nilai</span></button>
-        <div class="nav-label">ANALISIS</div>
-        <button class="nav" data-page="pulse">◎ <span>60 Student Pulse</span></button>
-        <button class="nav" data-page="students">◔ <span>Perkembangan Siswa</span></button>
-        <button class="nav" data-page="subjects">◫ <span>Analisis Mapel</span></button>
-        <div class="nav-label">PENGATURAN</div>
-        <button class="nav" data-page="settings">⚙ <span>Mata Pelajaran</span></button>
+        <button class="nav admin-only active" data-page="dashboard">⌂ <span>Dashboard</span></button>
+        <button class="nav student-only hidden" data-page="myGrades">◔ <span>Nilai Saya</span></button>
+
+        <div class="nav-label admin-only">DATA AKADEMIK</div>
+        <button class="nav admin-only" data-page="upload">⇧ <span>Upload Leger</span></button>
+        <button class="nav admin-only" data-page="records">▣ <span>Data Nilai</span></button>
+
+        <div class="nav-label admin-only">ANALISIS</div>
+        <button class="nav admin-only" data-page="pulse">◎ <span>Status Siswa</span></button>
+        <button class="nav admin-only" data-page="students">◔ <span>Perkembangan Siswa</span></button>
+        <button class="nav admin-only" data-page="subjects">◫ <span>Analisis Mapel</span></button>
+
+        <div class="nav-label admin-only">PENGATURAN</div>
+        <button class="nav admin-only" data-page="settings">⚙ <span>Pengaturan</span></button>
       </nav>
 
       <div class="sidebar-bottom">
+        <div class="account-card">
+          <div class="account-avatar">👤</div>
+          <div><small>Akun</small><b id="sidebarUserName">-</b><span id="sidebarUserRole">-</span></div>
+        </div>
         <div class="sync-card"><span id="syncDot">●</span><div><small>Status</small><b id="syncText">Terhubung</b></div></div>
-        <button id="logoutBtn" class="nav danger-nav">↪ <span>Keluar</span></button>
+        <button id="logoutBtn" class="logout-btn">↪ <span>Keluar</span></button>
       </div>
     </aside>
 
@@ -205,6 +218,24 @@
             </table>
           </div>
         </article>
+
+        <article id="studentAccessPanel" class="panel">
+          <div class="panel-head responsive">
+            <div><h3>Akses Login Siswa</h3><p>Siswa masuk menggunakan NIS dan PIN. Akun terhubung ke data NIS yang sama.</p></div>
+          </div>
+          <div class="student-access-form">
+            <select id="accessStudentSelect"></select>
+            <input id="accessPin" type="password" inputmode="numeric" placeholder="PIN siswa, minimal 6 karakter">
+            <button id="createAccessBtn" class="btn primary">Buat / Reset Akses</button>
+          </div>
+          <div id="accessMessage" class="message"></div>
+          <div class="table-wrap">
+            <table id="accessTable">
+              <thead><tr><th>NIS</th><th>Nama</th><th>Email Internal</th><th>Status</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </article>
       </section>
 
       <section id="recordsPage" class="page hidden">
@@ -217,6 +248,28 @@
             </div>
           </div>
           <div class="table-wrap"><table id="recordsTable"><thead></thead><tbody></tbody></table></div>
+        </article>
+      </section>
+
+      <section id="myGradesPage" class="page hidden">
+        <article class="panel">
+          <div class="panel-head responsive">
+            <div><h3>Nilai Saya</h3><p>Nilai pribadi dan posisi akademik di kelas.</p></div>
+            <select id="mySemesterSelect"></select>
+          </div>
+          <div id="mySummary" class="student-summary"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <div><h3>Nilai & Rata-rata Mapel Kelas</h3><p>Perbandingan nilai Anda dengan rata-rata kelas pada semester terpilih.</p></div>
+          </div>
+          <div class="table-wrap">
+            <table id="myGradesTable">
+              <thead><tr><th>Mata Pelajaran</th><th>Nilai Saya</th><th>Rata-rata Kelas</th><th>Selisih</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </article>
       </section>
     </main>

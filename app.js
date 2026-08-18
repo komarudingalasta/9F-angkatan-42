@@ -1,17 +1,18 @@
 import { firebaseConfig } from "./firebase-config.js";
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut,
-  sendPasswordResetEmail, setPersistence, browserLocalPersistence
+  sendPasswordResetEmail, setPersistence, browserLocalPersistence,
+  createUserWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import {
-  getFirestore, collection, getDocs, doc, setDoc, deleteDoc,
-  writeBatch, serverTimestamp
+  getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc,
+  writeBatch, serverTimestamp, query, where
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 const $=id=>document.getElementById(id);
 const CORE=["nis","nama","kelas","semester"];
-let app,auth,db,records=[],subjects=[],pendingFileRows=[],pendingHeaders=[],selectedStudent=null,charts={};
+let app,auth,db,records=[],subjects=[],pendingFileRows=[],pendingHeaders=[],selectedStudent=null,charts={},currentProfile=null,currentLoginRole="admin",studentSummaries=[];
 
 function configReady(){
   return firebaseConfig && firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("PASTE_") &&
@@ -25,10 +26,31 @@ if(!configReady()){
     setPersistence(auth,browserLocalPersistence).catch(()=>{});
     onAuthStateChanged(auth, async user=>{
       if(user){
-        $("loginScreen").classList.add("hidden");$("setupScreen").classList.add("hidden");$("app").classList.remove("hidden");
-        $("userEmail").textContent=user.email||"Admin";
-        await reloadData();
+        try{
+          const profileSnap=await getDoc(doc(db,"users",user.uid));
+          currentProfile=profileSnap.exists()?profileSnap.data():null;
+          if(!currentProfile){
+            await signOut(auth);
+            $("app").classList.add("hidden");$("loginScreen").classList.remove("hidden");
+            return setMessage("loginMessage","Akun belum memiliki profil akses di Firestore.",true);
+          }
+          if(currentProfile.role!==currentLoginRole){
+            const actual=currentProfile.role==="student"?"Siswa":"Admin";
+            await signOut(auth);
+            return setMessage("loginMessage",`Akun ini terdaftar sebagai ${actual}. Pilih tab login yang sesuai.`,true);
+          }
+          $("loginScreen").classList.add("hidden");$("setupScreen").classList.add("hidden");$("app").classList.remove("hidden");
+          $("userEmail").textContent=currentProfile.role==="student"?`NIS ${currentProfile.nis}`:(user.email||"Admin");
+          $("sidebarUserName").textContent=currentProfile.name||currentProfile.nis||user.email||"-";
+          $("sidebarUserRole").textContent=currentProfile.role==="student"?"Siswa":"Administrator";
+          applyRoleUI();
+          await reloadData();
+        }catch(e){
+          console.error(e);
+          setMessage("loginMessage","Gagal membaca profil akses: "+e.message,true);
+        }
       }else{
+        currentProfile=null;
         $("app").classList.add("hidden");$("loginScreen").classList.remove("hidden");
       }
     });
@@ -38,13 +60,52 @@ if(!configReady()){
   }
 }
 
+
+document.querySelectorAll(".login-tab").forEach(btn=>btn.onclick=()=>{
+  currentLoginRole=btn.dataset.role;
+  document.querySelectorAll(".login-tab").forEach(b=>b.classList.toggle("active",b===btn));
+  if(currentLoginRole==="student"){
+    $("loginIdentifierLabel").firstChild.textContent="NIS Siswa ";
+    $("email").type="text";
+    $("email").placeholder="Masukkan NIS";
+    $("resetPassword").classList.add("hidden");
+    $("loginHint").textContent="Siswa masuk menggunakan NIS dan PIN.";
+  }else{
+    $("loginIdentifierLabel").firstChild.textContent="Email Admin ";
+    $("email").type="email";
+    $("email").placeholder="admin@sekolah.sch.id";
+    $("resetPassword").classList.remove("hidden");
+    $("loginHint").textContent="Admin menggunakan email Firebase.";
+  }
+  $("email").value="";$("password").value="";setMessage("loginMessage","");
+});
+
+function studentInternalEmail(nis){
+  return `${String(nis).trim().toLowerCase().replace(/[^a-z0-9]/g,"")}@siswa.pakkom.local`;
+}
+
+function applyRoleUI(){
+  const isStudent=currentProfile?.role==="student";
+  document.querySelectorAll(".admin-only").forEach(el=>el.classList.toggle("hidden",isStudent));
+  document.querySelectorAll(".student-only").forEach(el=>el.classList.toggle("hidden",!isStudent));
+  $("semesterFilter").classList.toggle("hidden",isStudent);
+  $("classFilter").classList.toggle("hidden",isStudent);
+  if(isStudent)showPage("myGrades"); else showPage("dashboard");
+}
+
 $("loginForm").addEventListener("submit",async e=>{
   e.preventDefault();setMessage("loginMessage","Memproses...");
-  try{await signInWithEmailAndPassword(auth,$("email").value.trim(),$("password").value);setMessage("loginMessage","")}
+  try{
+    const loginId=$("email").value.trim();
+    const authEmail=currentLoginRole==="student"?studentInternalEmail(loginId):loginId;
+    await signInWithEmailAndPassword(auth,authEmail,$("password").value);
+    setMessage("loginMessage","");
+  }
   catch(err){setMessage("loginMessage",friendlyAuthError(err),true)}
 });
 $("togglePassword").onclick=()=>{$("password").type=$("password").type==="password"?"text":"password"};
 $("resetPassword").onclick=async()=>{
+  if(currentLoginRole!=="admin")return;
   const email=$("email").value.trim();if(!email)return setMessage("loginMessage","Masukkan email admin terlebih dahulu.",true);
   try{await sendPasswordResetEmail(auth,email);setMessage("loginMessage","Email reset password telah dikirim.")}catch(e){setMessage("loginMessage",friendlyAuthError(e),true)}
 };
@@ -65,19 +126,30 @@ function showPage(page){
   document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
   $(page+"Page").classList.remove("hidden");
   document.querySelectorAll(".nav[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
-  const meta={dashboard:["Dashboard","Ringkasan perkembangan akademik"],upload:["Upload Leger","Import Excel dengan validasi dan mapping"],records:["Data Nilai","Data Cloud Firestore"],pulse:["60 Student Pulse","Status perkembangan seluruh siswa"],students:["Perkembangan Siswa","Student Journey dan Growth Index"],subjects:["Analisis Mapel","Tren rata-rata mata pelajaran"],settings:["Mata Pelajaran","Atur nama, singkatan, urutan, dan status"]}[page];
+  const meta={dashboard:["Dashboard","Ringkasan perkembangan akademik"],upload:["Upload Leger","Import Excel dengan validasi dan mapping"],records:["Data Nilai","Data Cloud Firestore"],pulse:["Status Siswa","Status perkembangan seluruh siswa"],students:["Perkembangan Siswa","Student Journey dan Growth Index"],subjects:["Analisis Mapel","Tren rata-rata mata pelajaran"],settings:["Pengaturan","Mata pelajaran dan akses siswa"],myGrades:["Nilai Saya","Nilai pribadi, rata-rata kelas, dan ranking"]}[page];
   $("pageTitle").textContent=meta[0];$("pageSubtitle").textContent=meta[1];
-  if(page==="records")renderTable();if(page==="pulse")renderPulse("pulseGrid");if(page==="students")renderStudentList();if(page==="subjects")renderSubjects();if(page==="settings")renderSettings();
+  if(page==="records")renderTable();if(page==="pulse")renderPulse("pulseGrid");if(page==="students")renderStudentList();if(page==="subjects")renderSubjects();if(page==="settings"){renderSettings();renderStudentAccess();}if(page==="myGrades")renderMyGrades();
 }
 
 async function reloadData(){
   setSync("Menyinkronkan…");
   try{
-    const [recordSnap,subjectSnap]=await Promise.all([getDocs(collection(db,"records")),getDocs(collection(db,"subjects"))]);
-    records=recordSnap.docs.map(d=>({id:d.id,...d.data()}));
+    const subjectSnap=await getDocs(collection(db,"subjects"));
     subjects=subjectSnap.docs.map(d=>({id:d.id,...d.data()}));
-    ensureSubjectObjects();
-    setSync("Terhubung");renderAll();
+    if(currentProfile?.role==="student"){
+      const [recordSnap,summarySnap]=await Promise.all([
+        getDocs(query(collection(db,"records"),where("nis","==",currentProfile.nis))),
+        getDocs(query(collection(db,"studentSummaries"),where("nis","==",currentProfile.nis)))
+      ]);
+      records=recordSnap.docs.map(d=>({id:d.id,...d.data()}));
+      studentSummaries=summarySnap.docs.map(d=>({id:d.id,...d.data()}));
+      ensureSubjectObjects();setSync("Terhubung");renderMyGrades();
+    }else{
+      const recordSnap=await getDocs(collection(db,"records"));
+      records=recordSnap.docs.map(d=>({id:d.id,...d.data()}));
+      studentSummaries=[];
+      ensureSubjectObjects();setSync("Terhubung");renderAll();
+    }
   }catch(e){console.error(e);setSync("Gagal sinkron",false);alert("Gagal membaca Firestore: "+e.message)}
 }
 function ensureSubjectObjects(){
@@ -272,7 +344,10 @@ $("saveImportBtn").onclick=async()=>{
     await batchSet("records",prepared.map(r=>({id:r.id,data:{nis:r.nis,nama:r.nama,kelas:r.kelas,semester:r.semester,scores:r.scores,updatedAt:serverTimestamp()}})));
     const subMap=new Map();map.filter(m=>m.type==="subject"&&m.subjectName).forEach((m,i)=>{const key=slug(m.subjectName);subMap.set(key,{id:key,data:{key,name:m.subjectName,short:m.subjectName,order:i+1,active:true,updatedAt:serverTimestamp()}})});
     await batchSet("subjects",[...subMap.values()]);
-    pendingFileRows=[];pendingHeaders=[];$("mappingGrid").innerHTML='<div class="empty">Import selesai.</div>';$("importSummary").innerHTML='<div class="message success">Data berhasil disimpan ke Firebase.</div>';setMessage("saveProgress","Sinkronisasi selesai.");await reloadData();
+    pendingFileRows=[];pendingHeaders=[];$("mappingGrid").innerHTML='<div class="empty">Import selesai.</div>';$("importSummary").innerHTML='<div class="message success">Data berhasil disimpan ke Firebase.</div>';setMessage("saveProgress","Membuat ringkasan kelas & ranking…");
+    await reloadData();
+    await rebuildStudentSummaries();
+    setMessage("saveProgress","Data, rata-rata kelas, dan ranking berhasil diperbarui.");
   }catch(e){console.error(e);setMessage("saveProgress","Gagal menyimpan: "+e.message,true)}finally{$("saveImportBtn").disabled=false}
 };
 function recordId(r){
@@ -292,3 +367,118 @@ async function deleteCollectionDocs(collectionName){
 function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 function escapeAttr(v){return escapeHtml(v)}
 function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}}
+
+
+async function rebuildStudentSummaries(){
+  if(currentProfile?.role!=="admin")return;
+  const byClassSemester=new Map();
+  records.forEach(r=>{
+    const k=`${r.kelas}|||${r.semester}`;
+    if(!byClassSemester.has(k))byClassSemester.set(k,[]);
+    byClassSemester.get(k).push(r);
+  });
+  const items=[];
+  for(const [groupKey,list] of byClassSemester){
+    const [kelas,semester]=groupKey.split("|||");
+    const ss=subjectKeys(list);
+    const subjectAverages={};
+    ss.forEach(s=>subjectAverages[s]=avg(list.map(r=>r.scores?.[s])));
+    const classReportAverage=avg(list.map(rowAvg));
+    const ranked=[...list].map(r=>({r,avg:rowAvg(r)})).sort((a,b)=>b.avg-a.avg||String(a.r.nama).localeCompare(String(b.r.nama)));
+    let lastAvg=null,lastRank=0;
+    ranked.forEach((entry,index)=>{
+      const rank=(lastAvg!==null&&Math.abs(entry.avg-lastAvg)<0.0001)?lastRank:index+1;
+      lastAvg=entry.avg;lastRank=rank;
+      const id=`${slug(entry.r.nis||entry.r.nama)}_${slug(kelas)}_${slug(semester)}`.slice(0,220);
+      items.push({id,data:{
+        nis:entry.r.nis,nama:entry.r.nama,kelas,semester,
+        studentAverage:entry.avg,
+        classReportAverage,
+        subjectAverages,
+        rank,
+        classSize:ranked.length,
+        updatedAt:serverTimestamp()
+      }});
+    });
+  }
+  await deleteCollectionDocs("studentSummaries");
+  await batchSet("studentSummaries",items);
+}
+
+function renderMyGrades(){
+  if(currentProfile?.role!=="student")return;
+  const sems=uniq(studentSummaries.map(s=>s.semester)).sort((a,b)=>semesterRank(a)-semesterRank(b));
+  const old=$("mySemesterSelect").value;
+  $("mySemesterSelect").innerHTML=sems.map(s=>`<option value="${escapeAttr(s)}">${escapeHtml(s)}</option>`).join("");
+  if(sems.includes(old))$("mySemesterSelect").value=old;
+  else if(sems.length)$("mySemesterSelect").value=sems.at(-1);
+  $("mySemesterSelect").onchange=renderMySemester;
+  renderMySemester();
+}
+
+function renderMySemester(){
+  const semester=$("mySemesterSelect").value;
+  const summary=studentSummaries.find(s=>s.semester===semester);
+  const rec=records.find(r=>r.semester===semester);
+  if(!summary||!rec){
+    $("mySummary").innerHTML='<div class="empty">Belum ada ringkasan untuk semester ini. Minta admin melakukan import ulang / pembaruan ringkasan.</div>';
+    $("myGradesTable").querySelector("tbody").innerHTML="";
+    return;
+  }
+  $("mySummary").innerHTML=`
+    <div class="identity-card"><div class="avatar">${escapeHtml(rec.nama?.[0]||"S")}</div><div><h3>${escapeHtml(rec.nama)}</h3><p>NIS ${escapeHtml(rec.nis)} · Kelas ${escapeHtml(rec.kelas)} · ${escapeHtml(semester)}</p></div></div>
+    <div class="summary-card"><span>Rata-rata Rapor Saya</span><b>${fmt(summary.studentAverage)}</b></div>
+    <div class="summary-card"><span>Rata-rata Rapor Kelas</span><b>${fmt(summary.classReportAverage)}</b></div>
+    <div class="summary-card rank-highlight"><span>Ranking Kelas</span><b>${summary.rank} / ${summary.classSize}</b></div>`;
+  const ss=subjectKeys([rec]);
+  $("myGradesTable").querySelector("tbody").innerHTML=ss.map(s=>{
+    const mine=Number(rec.scores?.[s]),classAvg=Number(summary.subjectAverages?.[s]),diff=mine-classAvg;
+    return `<tr><td><b>${escapeHtml(subjectLabel(s))}</b></td><td>${fmt(mine)}</td><td>${fmt(classAvg)}</td><td class="${diff>=0?"positive-diff":"negative-diff"}">${diff>=0?"+":""}${fmt(diff)}</td></tr>`;
+  }).join("");
+}
+
+async function renderStudentAccess(){
+  if(currentProfile?.role!=="admin")return;
+  const latestByNis=new Map();
+  grouped(records).forEach(g=>{const l=trend(g).at(-1);if(l?.nis)latestByNis.set(l.nis,l)});
+  const studentsList=[...latestByNis.values()].sort((a,b)=>a.nama.localeCompare(b.nama));
+  $("accessStudentSelect").innerHTML='<option value="">Pilih siswa…</option>'+studentsList.map(s=>`<option value="${escapeAttr(s.nis)}">${escapeHtml(s.nis)} — ${escapeHtml(s.nama)}</option>`).join("");
+  try{
+    const snap=await getDocs(collection(db,"users"));
+    const users=snap.docs.map(d=>({uid:d.id,...d.data()})).filter(u=>u.role==="student").sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+    $("accessTable").querySelector("tbody").innerHTML=users.map(u=>`<tr><td>${escapeHtml(u.nis||"-")}</td><td>${escapeHtml(u.name||"-")}</td><td>${escapeHtml(u.email||studentInternalEmail(u.nis||""))}</td><td>Aktif</td></tr>`).join("")||'<tr><td colspan="4">Belum ada akun siswa.</td></tr>';
+  }catch(e){
+    $("accessTable").querySelector("tbody").innerHTML='<tr><td colspan="4">Tidak dapat membaca daftar akun.</td></tr>';
+  }
+}
+
+$("createAccessBtn")?.addEventListener("click",async()=>{
+  const nis=$("accessStudentSelect").value,pin=$("accessPin").value.trim();
+  if(!nis)return setMessage("accessMessage","Pilih siswa terlebih dahulu.",true);
+  if(pin.length<6)return setMessage("accessMessage","PIN minimal 6 karakter.",true);
+  const g=grouped(records).get(nis) || [...grouped(records).values()].find(x=>trend(x).at(-1)?.nis===nis);
+  const last=g?trend(g).at(-1):records.find(r=>r.nis===nis);
+  if(!last)return setMessage("accessMessage","Data siswa tidak ditemukan.",true);
+  const internalEmail=studentInternalEmail(nis);
+  setMessage("accessMessage","Membuat akun siswa…");
+  let secondaryApp,secondaryAuth;
+  try{
+    secondaryApp=getApps().find(a=>a.name==="student-account-creator")||initializeApp(firebaseConfig,"student-account-creator");
+    secondaryAuth=getAuth(secondaryApp);
+    const cred=await createUserWithEmailAndPassword(secondaryAuth,internalEmail,pin);
+    await setDoc(doc(db,"users",cred.user.uid),{
+      role:"student",nis,name:last.nama,email:internalEmail,kelas:last.kelas,updatedAt:serverTimestamp()
+    },{merge:true});
+    await signOut(secondaryAuth);
+    $("accessPin").value="";
+    setMessage("accessMessage",`Akses berhasil dibuat. Username siswa: ${nis}`);
+    await renderStudentAccess();
+  }catch(e){
+    if(e?.code==="auth/email-already-in-use"){
+      setMessage("accessMessage","Akun NIS ini sudah ada. Untuk reset PIN, hapus akun siswa tersebut di Firebase Authentication lalu buat kembali dari halaman ini.",true);
+    }else{
+      console.error(e);setMessage("accessMessage","Gagal membuat akun: "+(e.message||e),true);
+    }
+    try{if(secondaryAuth)await signOut(secondaryAuth)}catch(_){}
+  }
+});

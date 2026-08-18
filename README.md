@@ -143,3 +143,47 @@ Saat upload, selalu periksa Mapping Kolom dan Preview Import sebelum memilih **S
 ## Template Upload Excel
 File `template-upload-pakkom-student-analytics.xlsx` sudah tersedia di repository dan dapat diunduh langsung dari halaman Upload Leger.
 Kolom inti: NIS/NISN, Nama, Kelas, Semester. Setelahnya boleh menambahkan mata pelajaran sebanyak yang dibutuhkan.
+
+
+## V6 — Akses Siswa dengan NIS
+
+### Admin pertama kali
+Sebelum memakai Rules V6, buat dokumen Firestore berikut untuk akun admin yang sudah ada:
+
+`users/{UID_ADMIN}`
+
+Field:
+- `role` = `admin`
+- `name` = nama admin
+- `email` = email Firebase admin
+
+UID admin dapat dilihat di Firebase Console → Authentication → Users.
+
+Setelah dokumen admin dibuat, publish isi `firestore.rules` V6.
+
+### Membuat akses siswa
+Admin login → Pengaturan → Akses Login Siswa:
+1. Pilih siswa berdasarkan NIS.
+2. Masukkan PIN minimal 6 karakter.
+3. Klik **Buat / Reset Akses**.
+
+Sistem membuat akun Firebase internal dengan format:
+`NIS@siswa.pakkom.local`
+
+Siswa tidak perlu mengetahui email internal tersebut. Di halaman login, siswa cukup memilih **Siswa**, memasukkan **NIS** dan **PIN**.
+
+### Yang dapat dilihat siswa
+Siswa hanya mendapat UI untuk:
+- Nilai dirinya sendiri.
+- Rata-rata masing-masing mata pelajaran di kelas.
+- Rata-rata rapor kelas.
+- Ranking dirinya di kelas.
+
+Rata-rata kelas dan ranking disimpan di koleksi `studentSummaries`, sehingga siswa tidak perlu membaca nilai siswa lain.
+
+### Setelah import nilai
+V6 otomatis membangun ulang:
+- rata-rata mapel per kelas,
+- rata-rata rapor kelas,
+- ranking siswa,
+setelah admin menyimpan leger ke Firebase.

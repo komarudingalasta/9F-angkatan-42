@@ -19,3 +19,18 @@
 .format-guide{display:grid;gap:7px;margin:10px 0}.format-guide>div{display:grid;grid-template-columns:100px 1fr;gap:8px;padding:8px 9px;background:#f7f9fc;border:1px solid var(--line);border-radius:9px}.format-guide b{font-size:10px;color:var(--blue)}.format-guide span{font-size:9px;color:var(--muted)}
 .template-download{display:inline-flex;text-decoration:none;align-items:center;justify-content:center;margin:3px 0 10px}.format-example{background:#f7f9fc;border:1px solid var(--line);border-radius:9px;padding:9px;margin-bottom:10px}.format-example b{display:block;font-size:10px;margin-bottom:4px}.format-example code{display:block;font-size:9px;color:#46566e;overflow:auto;white-space:nowrap}
 @media(max-width:540px){.format-guide>div{grid-template-columns:1fr}.template-download{width:100%}}
+
+/* V6: sidebar-only + NIS login + restricted student portal */
+.login-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:14px 0 4px}.login-tab{border:1px solid var(--line);background:#f7f9fc;color:#5d6b80;border-radius:10px;padding:9px;font-weight:800;cursor:pointer}.login-tab.active{background:#edf4ff;border-color:#bfd0ef;color:var(--blue)}
+.login-hint{font-size:9px;color:var(--muted);background:#f7f9fc;border:1px solid var(--line);border-radius:9px;padding:8px;margin-top:8px}
+.account-card{display:flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:7px}.account-avatar{width:30px;height:30px;border-radius:9px;background:#eef3fb;display:grid;place-items:center}.account-card small,.account-card b,.account-card span{display:block}.account-card small{font-size:8px;color:var(--muted)}.account-card b{font-size:9px;max-width:120px;overflow:hidden;text-overflow:ellipsis}.account-card span{font-size:8px;color:var(--muted)}
+.logout-btn{width:100%;border:0;border-radius:10px;padding:10px;background:#fff0f1;color:#b92e38;font-weight:850;cursor:pointer;text-align:left}.logout-btn:hover{background:#ffe4e6}
+.student-access-form{display:grid;grid-template-columns:1.2fr 1fr auto;gap:8px;margin:10px 0}.student-access-form select,.student-access-form input{margin:0}
+.student-summary{display:grid;grid-template-columns:1.3fr repeat(3,1fr);gap:9px}.student-summary .identity-card,.student-summary .summary-card{border:1px solid var(--line);border-radius:11px;padding:12px}.identity-card{display:flex;gap:10px;align-items:center}.identity-card .avatar{flex:0 0 auto}.identity-card h3{margin:0 0 3px}.identity-card p{margin:0;color:var(--muted);font-size:9px}.summary-card span{display:block;color:var(--muted);font-size:9px}.summary-card b{display:block;font-size:22px;margin-top:5px}.rank-highlight b{color:var(--blue)}.positive-diff{color:var(--green);font-weight:800}.negative-diff{color:var(--red);font-weight:800}
+@media(max-width:900px){
+  .app{grid-template-columns:190px 1fr}.sidebar{display:flex;position:sticky;height:100vh}.sidebar nav{display:grid;overflow:auto}.nav-label{display:block}.main{padding:14px 11px}.student-access-form{grid-template-columns:1fr 1fr}.student-summary{grid-template-columns:1fr 1fr}
+}
+@media(max-width:680px){
+  .app{grid-template-columns:72px 1fr}.sidebar{padding:10px 7px}.brand>div:last-child,.nav span,.nav-label,.account-card>div:last-child,.sync-card>div,.logout-btn span{display:none}.brand{justify-content:center;padding-bottom:10px}.nav{justify-content:center;font-size:18px;padding:10px}.sidebar-bottom{display:grid;gap:5px}.account-card,.sync-card{justify-content:center;padding:6px}.logout-btn{text-align:center;font-size:18px}.main{padding:10px 9px}.student-access-form{grid-template-columns:1fr}.student-summary{grid-template-columns:1fr 1fr}
+}
+@media(max-width:460px){.student-summary{grid-template-columns:1fr}}
