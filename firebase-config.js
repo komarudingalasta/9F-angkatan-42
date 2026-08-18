@@ -1,10 +1,8 @@
-// GANTI nilai di bawah dengan konfigurasi Web App dari Firebase Console.
-// Firebase Console > Project settings > Your apps > Web app > SDK setup and configuration.
 export const firebaseConfig = {
-  apiKey: "PASTE_API_KEY",
-  authDomain: "PASTE_PROJECT_ID.firebaseapp.com",
-  projectId: "PASTE_PROJECT_ID",
-  storageBucket: "PASTE_PROJECT_ID.firebasestorage.app",
-  messagingSenderId: "PASTE_MESSAGING_SENDER_ID",
-  appId: "PASTE_APP_ID"
+  apiKey: "AIzaSyAYEBPPm-u6o7DpKoAMeLreA3qcraJK210",
+  authDomain: "f-angkatan-42-f0c53.firebaseapp.com",
+  projectId: "f-angkatan-42-f0c53",
+  storageBucket: "f-angkatan-42-f0c53.firebasestorage.app",
+  messagingSenderId: "177506317635",
+  appId: "1:177506317635:web:9401c17af9543044a36bf6"
 };
