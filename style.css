@@ -81,3 +81,16 @@
   .main{padding:9px}
   .access-actions{display:grid}.access-actions .btn{width:100%}
 }
+
+/* V9 critical visibility fix */
+.app.hidden,
+#app.hidden,
+.center-screen.hidden,
+#loginScreen.hidden,
+#setupScreen.hidden {
+  display:none!important;
+}
+#sidebarBackdrop.hidden{display:none!important}
+
+/* Student empty-state and sync notice */
+.student-data-notice{margin-top:10px;padding:9px 10px;border:1px solid #f0d8a7;background:#fff9eb;border-radius:9px;font-size:9px;color:#79580d}

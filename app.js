@@ -51,7 +51,11 @@ if(!configReady()){
         }
       }else{
         currentProfile=null;
-        $("app").classList.add("hidden");$("loginScreen").classList.remove("hidden");
+        records=[];studentSummaries=[];
+        $("app").classList.add("hidden");
+        $("sidebarBackdrop")?.classList.add("hidden");
+        document.querySelector(".sidebar")?.classList.remove("open");
+        $("loginScreen").classList.remove("hidden");
       }
     });
   }catch(e){
@@ -109,7 +113,17 @@ $("resetPassword").onclick=async()=>{
   const email=$("email").value.trim();if(!email)return setMessage("loginMessage","Masukkan email admin terlebih dahulu.",true);
   try{await sendPasswordResetEmail(auth,email);setMessage("loginMessage","Email reset password telah dikirim.")}catch(e){setMessage("loginMessage",friendlyAuthError(e),true)}
 };
-$("logoutBtn").onclick=()=>signOut(auth);
+$("logoutBtn").onclick=async()=>{
+  closeSidebar?.();
+  try{await signOut(auth)}catch(e){console.error(e)}
+  currentProfile=null;
+  records=[];studentSummaries=[];
+  $("app").classList.add("hidden");
+  $("sidebarBackdrop")?.classList.add("hidden");
+  $("loginScreen").classList.remove("hidden");
+  $("password").value="";
+  setMessage("loginMessage","");
+};
 
 function friendlyAuthError(e){
   const c=e?.code||"";
@@ -145,10 +159,24 @@ async function reloadData(){
       studentSummaries=summarySnap.docs.map(d=>({id:d.id,...d.data()}));
       ensureSubjectObjects();setSync("Terhubung");renderMyGrades();
     }else{
-      const recordSnap=await getDocs(collection(db,"records"));
+      const [recordSnap,summarySnap]=await Promise.all([
+        getDocs(collection(db,"records")),
+        getDocs(collection(db,"studentSummaries"))
+      ]);
       records=recordSnap.docs.map(d=>({id:d.id,...d.data()}));
-      studentSummaries=[];
-      ensureSubjectObjects();setSync("Terhubung");renderAll();
+      studentSummaries=summarySnap.docs.map(d=>({id:d.id,...d.data()}));
+      ensureSubjectObjects();
+
+      // One summary is expected for every student-semester record.
+      // Automatically repair missing/old summary collections.
+      if(records.length && studentSummaries.length !== records.length){
+        setSync("Memperbarui ranking…");
+        await rebuildStudentSummaries();
+        const repaired=await getDocs(collection(db,"studentSummaries"));
+        studentSummaries=repaired.docs.map(d=>({id:d.id,...d.data()}));
+      }
+
+      setSync("Terhubung");renderAll();
     }
   }catch(e){console.error(e);setSync("Gagal sinkron",false);alert("Gagal membaca Firestore: "+e.message)}
 }
@@ -407,7 +435,7 @@ async function rebuildStudentSummaries(){
 
 function renderMyGrades(){
   if(currentProfile?.role!=="student")return;
-  const sems=uniq(studentSummaries.map(s=>s.semester)).sort((a,b)=>semesterRank(a)-semesterRank(b));
+  const sems=uniq([...records.map(r=>r.semester),...studentSummaries.map(s=>s.semester)]).sort((a,b)=>semesterRank(a)-semesterRank(b));
   const old=$("mySemesterSelect").value;
   $("mySemesterSelect").innerHTML=sems.map(s=>`<option value="${escapeAttr(s)}">${escapeHtml(s)}</option>`).join("");
   if(sems.includes(old))$("mySemesterSelect").value=old;
@@ -420,21 +448,40 @@ function renderMySemester(){
   const semester=$("mySemesterSelect").value;
   const summary=studentSummaries.find(s=>s.semester===semester);
   const rec=records.find(r=>r.semester===semester);
-  if(!summary||!rec){
-    $("mySummary").innerHTML='<div class="empty">Belum ada ringkasan untuk semester ini. Minta admin melakukan import ulang / pembaruan ringkasan.</div>';
+
+  if(!rec){
+    $("mySummary").innerHTML='<div class="empty">Belum ada nilai untuk semester ini.</div>';
     $("myGradesTable").querySelector("tbody").innerHTML="";
     return;
   }
+
+  const reportAverage=rowAvg(rec);
   $("mySummary").innerHTML=`
     <div class="identity-card"><div class="avatar">${escapeHtml(rec.nama?.[0]||"S")}</div><div><h3>${escapeHtml(rec.nama)}</h3><p>NIS ${escapeHtml(rec.nis)} · Kelas ${escapeHtml(rec.kelas)} · ${escapeHtml(semester)}</p></div></div>
-    <div class="summary-card"><span>Rata-rata Rapor Saya</span><b>${fmt(summary.studentAverage)}</b></div>
-    <div class="summary-card"><span>Rata-rata Rapor Kelas</span><b>${fmt(summary.classReportAverage)}</b></div>
-    <div class="summary-card rank-highlight"><span>Ranking Kelas</span><b>${summary.rank} / ${summary.classSize}</b></div>`;
+    <div class="summary-card"><span>Rata-rata Rapor Saya</span><b>${fmt(reportAverage)}</b></div>
+    <div class="summary-card"><span>Rata-rata Rapor Kelas</span><b>${summary?fmt(summary.classReportAverage):"-"}</b></div>
+    <div class="summary-card rank-highlight"><span>Ranking Kelas</span><b>${summary?`${summary.rank} / ${summary.classSize}`:"-"}</b></div>`;
+
   const ss=subjectKeys([rec]);
   $("myGradesTable").querySelector("tbody").innerHTML=ss.map(s=>{
-    const mine=Number(rec.scores?.[s]),classAvg=Number(summary.subjectAverages?.[s]),diff=mine-classAvg;
-    return `<tr><td><b>${escapeHtml(subjectLabel(s))}</b></td><td>${fmt(mine)}</td><td>${fmt(classAvg)}</td><td class="${diff>=0?"positive-diff":"negative-diff"}">${diff>=0?"+":""}${fmt(diff)}</td></tr>`;
+    const mine=Number(rec.scores?.[s]);
+    const classAvg=summary?Number(summary.subjectAverages?.[s]):NaN;
+    const hasClassAvg=Number.isFinite(classAvg);
+    const diff=hasClassAvg?mine-classAvg:NaN;
+    return `<tr>
+      <td><b>${escapeHtml(subjectLabel(s))}</b></td>
+      <td>${fmt(mine)}</td>
+      <td>${hasClassAvg?fmt(classAvg):"-"}</td>
+      <td class="${hasClassAvg?(diff>=0?"positive-diff":"negative-diff"):""}">${hasClassAvg?`${diff>=0?"+":""}${fmt(diff)}`:"-"}</td>
+    </tr>`;
   }).join("");
+
+  if(!summary){
+    $("mySummary").insertAdjacentHTML("afterend",
+      '<div id="studentSummaryNotice" class="student-data-notice">Nilai pribadi sudah tersedia. Rata-rata kelas dan ranking sedang menunggu pembaruan ringkasan oleh admin. Login admin satu kali untuk membangun ringkasan otomatis.</div>');
+  }else{
+    document.getElementById("studentSummaryNotice")?.remove();
+  }
 }
 
 async function renderStudentAccess(){
@@ -537,4 +584,4 @@ function closeSidebar(){sidebar?.classList.remove("open");sidebarBackdrop?.class
 $("sidebarToggle")?.addEventListener("click",openSidebar);
 sidebarBackdrop?.addEventListener("click",closeSidebar);
 document.querySelectorAll(".sidebar .nav[data-page]").forEach(btn=>btn.addEventListener("click",()=>{if(innerWidth<=900)closeSidebar()}));
-$("logoutBtn")?.addEventListener("click",closeSidebar);
+

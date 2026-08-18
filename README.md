@@ -197,3 +197,13 @@ setelah admin menyimpan leger ke Firebase.
 - Siswa: username = NIS, password default = `123456`.
 - Admin dapat membuat akun seluruh siswa sekaligus.
 - Portal siswa hanya menampilkan nilai sendiri, rata-rata mapel kelas, rata-rata rapor kelas, dan ranking dirinya.
+
+
+## V9 — Perbaikan Logout dan Data Siswa
+
+- Memperbaiki bug HP yang membuat dashboard tetap terlihat sesudah logout.
+- Logout sekarang menghapus tampilan aplikasi dan hanya menampilkan halaman login.
+- Admin otomatis memeriksa `studentSummaries` saat login.
+- Jika ringkasan/ranking belum terbentuk atau jumlahnya tidak sesuai data nilai, sistem membangunnya otomatis.
+- Siswa tetap dapat melihat nilai pribadinya walaupun ringkasan kelas belum tersedia.
+- Setelah admin login satu kali, rata-rata mapel kelas, rata-rata rapor kelas, dan ranking akan diperbarui otomatis.
