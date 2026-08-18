@@ -1,0 +1,10 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Firebase local cache
+.firebase/
+firebase-debug.log
+firestore-debug.log

@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#174b9e">
+  <title>PakKom Student Analytics</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <section id="setupScreen" class="center-screen hidden auth-screen">
+    <div class="setup-card">
+      <div class="logo lg">PK</div>
+      <h1>Firebase belum dikonfigurasi</h1>
+      <p>Isi file <code>firebase-config.js</code> dengan konfigurasi Web App dari Firebase Console, lalu muat ulang halaman.</p>
+      <div class="setup-steps">
+        <b>Yang perlu diaktifkan:</b>
+        <span>1. Authentication → Email/Password</span>
+        <span>2. Firestore Database</span>
+        <span>3. Deploy <code>firestore.rules</code></span>
+      </div>
+      <p class="muted">Petunjuk lengkap tersedia di README.md.</p>
+    </div>
+  </section>
+
+  <section id="loginScreen" class="center-screen hidden auth-screen">
+    <div class="login-card">
+      <div class="logo lg">PK</div>
+      <h1>PakKom Student Analytics</h1>
+      <p id="loginDescription">Masuk sebagai administrator atau siswa.</p>
+      <div class="login-tabs">
+        <button type="button" class="login-tab active" data-role="admin">Admin</button>
+        <button type="button" class="login-tab" data-role="student">Siswa</button>
+      </div>
+      <form id="loginForm">
+        <label id="loginIdentifierLabel">Email Admin
+          <input id="email" type="text" autocomplete="username" required placeholder="admin@sekolah.sch.id">
+        </label>
+        <label>PIN / Password
+          <div class="password-wrap">
+            <input id="password" type="password" autocomplete="current-password" required placeholder="Masukkan password">
+            <button type="button" id="togglePassword" class="icon-btn">👁</button>
+          </div>
+        </label>
+        <button class="btn primary full" type="submit">Masuk</button>
+        <button class="btn link full" type="button" id="resetPassword">Lupa password admin?</button>
+        <div id="loginHint" class="login-hint">Admin menggunakan email Firebase. Siswa menggunakan NIS + PIN.</div>
+        <div id="loginMessage" class="message"></div>
+      </form>
+    </div>
+  </section>
+
+  <div id="sidebarBackdrop" class="sidebar-backdrop hidden"></div>
+  <div id="app" class="app hidden">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">PK</div>
+        <div><b>PakKom</b><span>Student Analytics</span></div>
+      </div>
+
+      <nav>
+        <button class="nav admin-only active" data-page="dashboard">⌂ <span>Dashboard</span></button>
+        <button class="nav student-only hidden" data-page="myGrades">◔ <span>Nilai Saya</span></button>
+
+        <div class="nav-label admin-only">DATA AKADEMIK</div>
+        <button class="nav admin-only" data-page="upload">⇧ <span>Upload Leger</span></button>
+        <button class="nav admin-only" data-page="records">▣ <span>Data Nilai</span></button>
+
+        <div class="nav-label admin-only">ANALISIS</div>
+        <button class="nav admin-only" data-page="pulse">◎ <span>Status Siswa</span></button>
+        <button class="nav admin-only" data-page="students">◔ <span>Perkembangan Siswa</span></button>
+        <button class="nav admin-only" data-page="subjects">◫ <span>Analisis Mapel</span></button>
+
+        <div class="nav-label admin-only">PENGATURAN</div>
+        <button class="nav admin-only" data-page="settings">⚙ <span>Pengaturan</span></button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="account-card">
+          <div class="account-avatar">👤</div>
+          <div><small>Akun</small><b id="sidebarUserName">-</b><span id="sidebarUserRole">-</span></div>
+        </div>
+        <div class="sync-card"><span id="syncDot">●</span><div><small>Status</small><b id="syncText">Terhubung</b></div></div>
+        <button id="logoutBtn" class="logout-btn">↪ <span>Keluar</span></button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Buka menu">☰ <span>Menu</span></button>
+        <div>
+          <h2 id="pageTitle">Dashboard</h2>
+          <p id="pageSubtitle">Ringkasan perkembangan akademik</p>
+        </div>
+        <div class="top-actions">
+          <select id="semesterFilter"></select>
+          <select id="classFilter"></select>
+          <div class="user-pill">👤 <span id="userEmail">Admin</span></div>
+        </div>
+      </header>
+
+      <div id="dataStatusBanner" class="data-status hidden"></div>
+
+      <section id="dashboardPage" class="page">
+        <div class="kpi-grid">
+          <article class="kpi"><span>Total Siswa</span><b id="kpiStudents">0</b><small>Maksimal 60 siswa</small></article>
+          <article class="kpi"><span>Rata-rata Kelas</span><b id="kpiAverage">0</b><small id="kpiAverageDelta">Belum ada tren</small></article>
+          <article class="kpi positive"><span>Siswa Meningkat</span><b id="kpiUp">0%</b><small id="kpiUpCount">0 siswa</small></article>
+          <article class="kpi warning"><span>Perlu Dipantau</span><b id="kpiWatch">0%</b><small id="kpiWatchCount">0 siswa</small></article>
+          <article class="kpi danger"><span>Perlu Perhatian</span><b id="kpiAlert">0%</b><small id="kpiAlertCount">0 siswa</small></article>
+        </div>
+
+        <div class="grid dashboard-grid">
+          <article class="panel trend-panel">
+            <div class="panel-head"><div><h3>Perkembangan Rata-rata Kelas</h3><p>Tren nilai dari semester ke semester</p></div></div>
+            <canvas id="trendChart"></canvas>
+          </article>
+          <article class="panel"><h3>Mapel Peningkatan Terbaik</h3><div id="bestSubjects" class="metric-list"></div></article>
+          <article class="panel"><h3>Mapel Perlu Perhatian</h3><div id="weakSubjects" class="metric-list"></div></article>
+          <article class="panel"><h3>Most Improved Student</h3><div id="improvedStudents" class="metric-list"></div></article>
+        </div>
+
+        <article class="panel">
+          <div class="panel-head responsive">
+            <div><h3>Peta Perkembangan Siswa</h3><p>Lihat kondisi perkembangan seluruh siswa dalam satu tampilan.</p></div>
+            <div class="legend"><span>🟢 Meningkat</span><span>🔵 Stabil</span><span>🟡 Dipantau</span><span>🔴 Perhatian</span></div>
+          </div>
+          <div id="pulsePreview" class="pulse-grid"></div>
+        </article>
+      </section>
+
+      <section id="uploadPage" class="page hidden">
+        <div class="grid upload-grid">
+          <article class="panel">
+            <h3>1. Siapkan & Pilih Leger Excel</h3>
+            <p>Gunakan template agar struktur data mudah dikenali. Nama dan jumlah mata pelajaran boleh disesuaikan.</p>
+            <div class="format-guide">
+              <div><b>Kolom inti</b><span>NIS/NISN · Nama · Kelas · Semester</span></div>
+              <div><b>Kolom mapel</b><span>Tambahkan sebanyak yang dibutuhkan. Nama mapel bebas.</span></div>
+              <div><b>Nilai</b><span>Isi angka nilai, misalnya 0–100.</span></div>
+            </div>
+            <a class="btn secondary template-download" href="template-upload-pakkom-student-analytics.xlsx" download>⬇ Download Template Excel</a>
+            <div class="format-example">
+              <b>Contoh header:</b>
+              <code>NIS | Nama | Kelas | Semester | Matematika | IPA | Bahasa Indonesia | ...</code>
+            </div>
+            <label class="dropzone">
+              <div class="upload-icon">⇧</div>
+              <b>Pilih file .xlsx / .xls</b>
+              <span>File dibaca di browser dan baru disimpan ke Firebase setelah Anda menekan Simpan.</span>
+              <input id="excelFile" type="file" accept=".xlsx,.xls" hidden>
+            </label>
+            <div id="fileInfo" class="message"></div>
+          </article>
+          <article class="panel">
+            <h3>3. Preview Import</h3>
+            <div id="importSummary" class="preview-box"><div class="empty">Pilih file dan mapping kolom terlebih dahulu.</div></div>
+            <button id="saveImportBtn" class="btn primary full" disabled>Simpan Data Valid ke Firebase</button>
+            <div id="saveProgress" class="message"></div>
+          </article>
+        </div>
+
+        <article class="panel">
+          <div class="panel-head responsive">
+            <div><h3>2. Mapping Kolom</h3><p>Konfirmasi fungsi setiap kolom. Kolom nonmapel dapat diabaikan.</p></div>
+            <button id="rebuildPreviewBtn" class="btn secondary" disabled>Perbarui Preview</button>
+          </div>
+          <div id="mappingGrid" class="mapping-grid"><div class="empty">Belum ada file dipilih.</div></div>
+        </article>
+      </section>
+
+      <section id="pulsePage" class="page hidden">
+        <article class="panel">
+          <div class="panel-head responsive">
+            <div><h3>Peta Perkembangan Siswa</h3><p>Status perkembangan berdasarkan perubahan nilai antarsemester.</p></div>
+            <div class="legend"><span>🟢 Meningkat</span><span>🔵 Stabil</span><span>🟡 Dipantau</span><span>🔴 Perhatian</span></div>
+          </div>
+          <div id="pulseGrid" class="pulse-grid large"></div>
+        </article>
+      </section>
+
+      <section id="studentsPage" class="page hidden">
+        <div class="students-layout">
+          <article class="panel student-list-panel">
+            <h3>Daftar Siswa</h3>
+            <input id="studentSearch" placeholder="Cari nama / NIS">
+            <div id="studentList" class="student-list"></div>
+          </article>
+          <div>
+            <article class="panel">
+              <div id="studentProfile" class="empty">Pilih siswa untuk melihat Student Journey.</div>
+            </article>
+            <article id="journeyPanel" class="panel hidden">
+              <div class="panel-head responsive"><div><h3>Student Journey</h3><p>Perkembangan antarsemester</p></div><select id="studentSubjectSelect"></select></div>
+              <canvas id="studentChart"></canvas>
+            </article>
+            <div id="strengthGrid" class="grid two hidden">
+              <article class="panel"><h3>Kekuatan Akademik</h3><div id="strengths"></div></article>
+              <article class="panel"><h3>Fokus Pengembangan</h3><div id="focus"></div></article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="subjectsPage" class="page hidden">
+        <article class="panel">
+          <div class="panel-head responsive"><div><h3>Analisis Mata Pelajaran</h3><p>Tren rata-rata per semester</p></div><select id="subjectSelect"></select></div>
+          <canvas id="subjectChart"></canvas>
+          <div id="subjectStats" class="stat-strip"></div>
+        </article>
+      </section>
+
+      <section id="settingsPage" class="page hidden">
+        <article class="panel">
+          <div class="panel-head responsive">
+            <div><h3>Pengaturan Mata Pelajaran</h3><p>Nama, singkatan, urutan, dan status mapel tersimpan di Firebase.</p></div>
+          </div>
+          <div class="table-wrap">
+            <table id="subjectSettingsTable">
+              <thead><tr><th>Urutan</th><th>Kunci Data</th><th>Nama Mapel</th><th>Singkatan</th><th>Status</th><th>Aksi</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article id="studentAccessPanel" class="panel">
+          <div class="panel-head responsive">
+            <div><h3>Akses Login Siswa</h3><p>Siswa masuk menggunakan NIS. Password awal otomatis 123456.</p></div>
+          </div>
+          <div class="access-actions">
+            <button id="createAllAccessBtn" class="btn primary">Buat Akses Semua Siswa</button>
+            <span class="default-password-note">Password default: <b>123456</b></span>
+          </div>
+          <div class="student-access-form">
+            <select id="accessStudentSelect"></select>
+            <button id="createAccessBtn" class="btn secondary">Buat Akses Siswa Terpilih</button>
+          </div>
+          <div id="accessMessage" class="message"></div>
+          <div class="table-wrap">
+            <table id="accessTable">
+              <thead><tr><th>NIS</th><th>Nama</th><th>Email Internal</th><th>Status</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section id="recordsPage" class="page hidden">
+        <article class="panel">
+          <div class="panel-head responsive">
+            <div><h3>Data Nilai</h3><p>Data langsung dibaca dari Cloud Firestore.</p></div>
+            <div class="button-row">
+              <button id="refreshBtn" class="btn secondary">Muat Ulang</button>
+              <button id="deleteAllBtn" class="btn danger">Hapus Semua Nilai</button>
+            </div>
+          </div>
+          <div class="table-wrap"><table id="recordsTable"><thead></thead><tbody></tbody></table></div>
+        </article>
+      </section>
+
+      <section id="myGradesPage" class="page hidden">
+        <article class="panel">
+          <div class="panel-head responsive">
+            <div><h3>Nilai Saya</h3><p>Nilai pribadi dan posisi akademik di kelas.</p></div>
+            <select id="mySemesterSelect"></select>
+          </div>
+          <div id="mySummary" class="student-summary"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <div><h3>Nilai & Rata-rata Mapel Kelas</h3><p>Perbandingan nilai Anda dengan rata-rata kelas pada semester terpilih.</p></div>
+          </div>
+          <div class="table-wrap">
+            <table id="myGradesTable">
+              <thead><tr><th>Mata Pelajaran</th><th>Nilai Saya</th><th>Rata-rata Kelas</th><th>Selisih</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
