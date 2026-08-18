@@ -1,42 +1,140 @@
-# PakKom Student Analytics
+# PakKom Student Analytics — Firebase Edition
 
-Repository siap deploy ke GitHub Pages.
-
-## Login demo
-- Username: `admin`
-- Password: `123456`
+Web analisis perkembangan nilai siswa untuk maksimal sekitar 60 siswa. Data tersimpan di **Cloud Firestore** sehingga dapat dibuka dari beberapa perangkat. Login menggunakan **Firebase Authentication Email/Password**.
 
 ## Fitur
-- Dashboard modern
-- Maksimal 60 siswa
-- Upload leger Excel
-- Preview import
-- Mapping kolom
+
+- Firebase Authentication
+- Cloud Firestore
+- Upload leger Excel `.xlsx` / `.xls`
+- Mapping kolom sebelum import:
+  - NIS/NISN
+  - Nama
+  - Kelas
+  - Semester
+  - Mata Pelajaran
+  - Abaikan
+- Nama mapel dapat diubah sebelum import
+- Kolom ranking, jumlah, rata-rata, sakit, izin, alpa dapat diabaikan
+- Dashboard perkembangan nilai
 - 60 Student Pulse
-- Student Journey
 - Growth Index
-- Personal Best
 - Most Improved Student
+- Student Journey
+- Personal Best
+- Kekuatan dan fokus pengembangan
 - Analisis mapel
-- Pengaturan nama mata pelajaran
-- Tampilan responsif desktop dan HP
+- Pengaturan nama/singkatan/status mapel
+- Responsive desktop / tablet / HP
 
-## Format Excel
-Minimal memiliki kolom:
-- NIS / NISN
-- Nama / Nama Siswa
-- Kelas / Rombel
-- Semester
+## Struktur Firestore
 
-Kolom angka lainnya dibaca sebagai nilai mata pelajaran.
+### `records/{recordId}`
 
-## Deploy GitHub Pages
-1. Buat repository baru di GitHub.
-2. Upload semua file dari repository ini ke root repository.
-3. Buka **Settings > Pages**.
-4. Pada **Build and deployment**, pilih **Deploy from a branch**.
-5. Pilih branch **main** dan folder **/root**.
-6. Simpan.
+```text
+nis
+nama
+kelas
+semester
+scores {
+  matematika: 90
+  ipa: 85
+}
+updatedAt
+```
 
-## Catatan
-Versi ini menyimpan data di `localStorage` browser, jadi tetap gratis tanpa server/database.
+### `subjects/{subjectKey}`
+
+```text
+key
+name
+short
+order
+active
+updatedAt
+```
+
+## Setup Firebase
+
+### 1. Buat project Firebase
+
+Buka Firebase Console dan buat project.
+
+### 2. Tambahkan Web App
+
+Project Settings → Your apps → pilih Web.
+
+Salin konfigurasi Firebase ke `firebase-config.js`.
+
+Contoh:
+
+```js
+export const firebaseConfig = {
+  apiKey: "...",
+  authDomain: "...firebaseapp.com",
+  projectId: "...",
+  storageBucket: "...firebasestorage.app",
+  messagingSenderId: "...",
+  appId: "..."
+};
+```
+
+### 3. Aktifkan Authentication
+
+Firebase Console → Authentication → Sign-in method → aktifkan **Email/Password**.
+
+Kemudian buat akun admin di Authentication → Users → Add user.
+
+Login web menggunakan email dan password akun ini.
+
+### 4. Buat Firestore Database
+
+Firebase Console → Firestore Database → Create database.
+
+Setelah database dibuat, gunakan isi `firestore.rules` sebagai Rules lalu **Publish**.
+
+Rules yang disediakan hanya mengizinkan akses bila pengguna sudah login Firebase Authentication.
+
+### 5. Deploy gratis
+
+#### Pilihan A — GitHub Pages
+
+Upload seluruh file repository ke GitHub lalu aktifkan:
+
+Settings → Pages → Deploy from a branch → `main` → `/root`.
+
+Firebase Authentication + Firestore tetap dapat digunakan dari GitHub Pages.
+
+Tambahkan domain GitHub Pages Anda ke:
+
+Firebase Authentication → Settings → Authorized domains
+
+Contoh:
+
+```text
+username.github.io
+```
+
+#### Pilihan B — Firebase Hosting
+
+Jika memakai Firebase CLI:
+
+```bash
+firebase login
+firebase use --add
+firebase deploy
+```
+
+File `firebase.json` dan `firestore.rules` sudah disediakan.
+
+## Catatan keamanan
+
+Konfigurasi Web Firebase (`apiKey`, `projectId`, dll.) memang berada pada client web. Keamanan database tidak bergantung pada kerahasiaan konfigurasi tersebut, tetapi pada Firebase Authentication dan Firestore Security Rules.
+
+Versi rules repository ini cocok untuk sistem sederhana dengan hanya akun admin yang dibuat di Firebase Authentication. Jika nanti dibuat login siswa, rules harus ditingkatkan agar siswa hanya dapat membaca data miliknya sendiri.
+
+## Data Excel
+
+Tidak ada file Excel yang disimpan ke Firebase. Browser membaca Excel menggunakan SheetJS, lalu hanya data nilai hasil parsing yang dikirim ke Firestore.
+
+Saat upload, selalu periksa Mapping Kolom dan Preview Import sebelum memilih **Simpan Data Valid ke Firebase**.

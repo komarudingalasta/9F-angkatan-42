@@ -1,103 +1,294 @@
+import { firebaseConfig } from "./firebase-config.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut,
+  sendPasswordResetEmail, setPersistence, browserLocalPersistence
+} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import {
+  getFirestore, collection, getDocs, doc, setDoc, deleteDoc,
+  writeBatch, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 const $=id=>document.getElementById(id);
-let rows=JSON.parse(localStorage.getItem("pakkom_repo_rows")||"[]");
-let subjects=JSON.parse(localStorage.getItem("pakkom_repo_subjects")||"[]");
-let pending=[];
-let charts={};
-let selected=null;
+const CORE=["nis","nama","kelas","semester"];
+let app,auth,db,records=[],subjects=[],pendingFileRows=[],pendingHeaders=[],selectedStudent=null,charts={};
 
-function login(){
-  if($("user").value==="admin" && $("pass").value==="123456"){
-    sessionStorage.pakkomRepo="1"; showApp();
-  } else $("loginError").innerText="Username atau password salah.";
+function configReady(){
+  return firebaseConfig && firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("PASTE_") &&
+    firebaseConfig.projectId && !firebaseConfig.projectId.includes("PASTE_");
 }
-function logout(){sessionStorage.removeItem("pakkomRepo");location.reload();}
-function showApp(){$("login").classList.add("hidden");$("app").classList.remove("hidden");renderAll();}
-if(sessionStorage.pakkomRepo==="1")showApp();
+if(!configReady()){
+  $("setupScreen").classList.remove("hidden");
+}else{
+  try{
+    app=initializeApp(firebaseConfig); auth=getAuth(app); db=getFirestore(app);
+    setPersistence(auth,browserLocalPersistence).catch(()=>{});
+    onAuthStateChanged(auth, async user=>{
+      if(user){
+        $("loginScreen").classList.add("hidden");$("setupScreen").classList.add("hidden");$("app").classList.remove("hidden");
+        $("userEmail").textContent=user.email||"Admin";
+        await reloadData();
+      }else{
+        $("app").classList.add("hidden");$("loginScreen").classList.remove("hidden");
+      }
+    });
+  }catch(e){
+    $("setupScreen").classList.remove("hidden");
+    $("setupScreen").querySelector("p").textContent="Konfigurasi Firebase tidak valid: "+e.message;
+  }
+}
 
-document.querySelectorAll(".nav").forEach(btn=>btn.onclick=()=>showPage(btn.dataset.page));
+$("loginForm").addEventListener("submit",async e=>{
+  e.preventDefault();setMessage("loginMessage","Memproses...");
+  try{await signInWithEmailAndPassword(auth,$("email").value.trim(),$("password").value);setMessage("loginMessage","")}
+  catch(err){setMessage("loginMessage",friendlyAuthError(err),true)}
+});
+$("togglePassword").onclick=()=>{$("password").type=$("password").type==="password"?"text":"password"};
+$("resetPassword").onclick=async()=>{
+  const email=$("email").value.trim();if(!email)return setMessage("loginMessage","Masukkan email admin terlebih dahulu.",true);
+  try{await sendPasswordResetEmail(auth,email);setMessage("loginMessage","Email reset password telah dikirim.")}catch(e){setMessage("loginMessage",friendlyAuthError(e),true)}
+};
+$("logoutBtn").onclick=()=>signOut(auth);
+
+function friendlyAuthError(e){
+  const c=e?.code||"";
+  if(c.includes("invalid-credential"))return"Email atau password salah.";
+  if(c.includes("too-many-requests"))return"Terlalu banyak percobaan. Coba lagi nanti.";
+  if(c.includes("network-request-failed"))return"Koneksi internet bermasalah.";
+  return e?.message||"Login gagal.";
+}
+function setMessage(id,text,error=false){const el=$(id);el.textContent=text;el.className="message "+(error?"error":text?"success":"")}
+function setSync(text,ok=true){$("syncText").textContent=text;$("syncDot").style.color=ok?"var(--green)":"var(--red)"}
+
+document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>showPage(b.dataset.page));
 function showPage(page){
   document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
   $(page+"Page").classList.remove("hidden");
-  document.querySelectorAll(".nav").forEach(n=>n.classList.toggle("active",n.dataset.page===page));
-  const meta={dashboard:["Dashboard","Ringkasan perkembangan akademik"],upload:["Upload Leger","Import dan validasi data nilai"],data:["Data Nilai","Data akademik tersimpan"],students:["Perkembangan Siswa","Student Journey dan Growth Index"],subjects:["Analisis Mapel","Tren nilai per mata pelajaran"],settings:["Mata Pelajaran","Atur nama dan singkatan mapel"]};
-  $("title").innerText=meta[page][0];$("subtitle").innerText=meta[page][1];
-  if(page==="students")renderStudents(); if(page==="subjects")renderSubjects(); if(page==="settings")renderSettings(); if(page==="data")renderTable();
+  document.querySelectorAll(".nav[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
+  const meta={dashboard:["Dashboard","Ringkasan perkembangan akademik"],upload:["Upload Leger","Import Excel dengan validasi dan mapping"],records:["Data Nilai","Data Cloud Firestore"],pulse:["60 Student Pulse","Status perkembangan seluruh siswa"],students:["Perkembangan Siswa","Student Journey dan Growth Index"],subjects:["Analisis Mapel","Tren rata-rata mata pelajaran"],settings:["Mata Pelajaran","Atur nama, singkatan, urutan, dan status"]}[page];
+  $("pageTitle").textContent=meta[0];$("pageSubtitle").textContent=meta[1];
+  if(page==="records")renderTable();if(page==="pulse")renderPulse("pulseGrid");if(page==="students")renderStudentList();if(page==="subjects")renderSubjects();if(page==="settings")renderSettings();
 }
-const uniq=a=>[...new Set(a.filter(Boolean))];
-const avg=a=>{a=a.map(Number).filter(Number.isFinite);return a.length?a.reduce((x,y)=>x+y,0)/a.length:0};
-const fmt=n=>Number(n||0).toFixed(1).replace(".0","");
-function key(r){return r.nis||r.nama+"|"+r.kelas}
-function subjectKeys(data=rows){
-  const set=new Set;
-  data.forEach(r=>Object.keys(r).forEach(k=>{if(!["nis","nama","kelas","semester"].includes(k)&&Number.isFinite(Number(r[k])))set.add(k)}));
-  return [...set].filter(k=>subjects.find(x=>x.key===k)?.active!==false).sort();
-}
-function label(k){return subjects.find(x=>x.key===k)?.name||k.replace(/\b\w/g,c=>c.toUpperCase())}
-function ravg(r){return avg(subjectKeys([r]).map(k=>r[k])}
-function groups(data=rows){const m=new Map;data.forEach(r=>{const k=key(r);if(!m.has(k))m.set(k,[]);m.get(k).push(r)});return m}
-function trend(g){return [...g].sort((a,b)=>String(a.semester).localeCompare(String(b.semester)))}
-function delta(g){const t=trend(g);return t.length<2?0:ravg(t.at(-1))-ravg(t.at(-2))}
-function status(g){const t=trend(g),d=delta(g);if(t.length>=3&&ravg(t.at(-2))<ravg(t.at(-3))-2&&ravg(t.at(-1))<ravg(t.at(-2))-2)return["🔴","Perhatian"];if(d>=3)return["🟢","Meningkat"];if(d<=-3)return["🟡","Dipantau"];return["🔵","Stabil"]}
-function chart(name,id,cfg){if(charts[name])charts[name].destroy();charts[name]=new Chart($(id),cfg)}
-function filtered(){let d=[...rows],s=$("semesterFilter").value,c=$("classFilter").value;if(s&&s!=="ALL")d=d.filter(r=>r.semester===s);if(c&&c!=="ALL")d=d.filter(r=>r.kelas===c);return d}
 
-function initSubjects(){
-  subjectKeys(rows).forEach(k=>{if(!subjects.some(x=>x.key===k))subjects.push({key:k,name:k.replace(/\b\w/g,c=>c.toUpperCase()),short:k,active:true})});
-  localStorage.setItem("pakkom_repo_subjects",JSON.stringify(subjects));
+async function reloadData(){
+  setSync("Menyinkronkan…");
+  try{
+    const [recordSnap,subjectSnap]=await Promise.all([getDocs(collection(db,"records")),getDocs(collection(db,"subjects"))]);
+    records=recordSnap.docs.map(d=>({id:d.id,...d.data()}));
+    subjects=subjectSnap.docs.map(d=>({id:d.id,...d.data()}));
+    ensureSubjectObjects();
+    setSync("Terhubung");renderAll();
+  }catch(e){console.error(e);setSync("Gagal sinkron",false);alert("Gagal membaca Firestore: "+e.message)}
 }
+function ensureSubjectObjects(){
+  const keys=subjectKeys(records,false);
+  keys.forEach((key,i)=>{
+    if(!subjects.some(s=>s.key===key))subjects.push({id:key,key,name:titleCase(key),short:titleCase(key),order:100+i,active:true,_local:true});
+  });
+}
+
+const uniq=a=>[...new Set(a.filter(Boolean))];
+const avg=a=>{const v=a.map(Number).filter(Number.isFinite);return v.length?v.reduce((x,y)=>x+y,0)/v.length:0};
+const fmt=n=>Number(n||0).toFixed(1).replace(".0","");
+const titleCase=s=>String(s||"").replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase());
+function studentKey(r){return r.nis||`${r.nama}|${r.kelas}`}
+function subjectKeys(data=records,onlyActive=true){
+  const set=new Set;
+  data.forEach(r=>Object.keys(r.scores||{}).forEach(k=>set.add(k)));
+  let arr=[...set];
+  if(onlyActive)arr=arr.filter(k=>subjectMeta(k).active!==false);
+  return arr.sort((a,b)=>(subjectMeta(a).order??999)-(subjectMeta(b).order??999)||subjectLabel(a).localeCompare(subjectLabel(b)));
+}
+function subjectMeta(key){return subjects.find(s=>s.key===key)||{key,name:titleCase(key),short:titleCase(key),order:999,active:true}}
+function subjectLabel(k,short=false){const m=subjectMeta(k);return short?(m.short||m.name||titleCase(k)):(m.name||titleCase(k))}
+function rowAvg(r){return avg(subjectKeys([r]).map(s=>r.scores?.[s]))}
+function grouped(data=records){const m=new Map;data.forEach(r=>{const k=studentKey(r);if(!m.has(k))m.set(k,[]);m.get(k).push(r)});return m}
+function semesterRank(s){const n=String(s).match(/\d+/);return n?Number(n[0]):999}
+function trend(g){return [...g].sort((a,b)=>semesterRank(a.semester)-semesterRank(b.semester)||String(a.semester).localeCompare(String(b.semester)))}
+function delta(g){const t=trend(g);return t.length<2?0:rowAvg(t.at(-1))-rowAvg(t.at(-2))}
+function status(g){
+  const t=trend(g),d=delta(g);
+  if(t.length>=3 && rowAvg(t.at(-2))<rowAvg(t.at(-3))-2 && rowAvg(t.at(-1))<rowAvg(t.at(-2))-2)return["🔴","Perhatian"];
+  if(d>=3)return["🟢","Meningkat"];if(d<=-3)return["🟡","Dipantau"];return["🔵","Stabil"];
+}
+function chart(name,id,cfg){if(charts[name])charts[name].destroy();charts[name]=new Chart($(id),cfg)}
+
 function updateFilters(){
-  const os=$("semesterFilter").value||"ALL",oc=$("classFilter").value||"ALL";
-  $("semesterFilter").innerHTML='<option value="ALL">Semua Semester</option>'+uniq(rows.map(r=>r.semester)).sort().map(x=>`<option>${x}</option>`).join("");
-  $("classFilter").innerHTML='<option value="ALL">Semua Kelas</option>'+uniq(rows.map(r=>r.kelas)).sort().map(x=>`<option>${x}</option>`).join("");
-  if([...$("semesterFilter").options].some(x=>x.value===os))$("semesterFilter").value=os;if([...$("classFilter").options].some(x=>x.value===oc))$("classFilter").value=oc;
-  $("semesterFilter").onchange=renderDashboard;$("classFilter").onchange=renderDashboard;
+  const oldS=$("semesterFilter").value||"ALL",oldC=$("classFilter").value||"ALL";
+  $("semesterFilter").innerHTML='<option value="ALL">Semua Semester</option>'+uniq(records.map(r=>r.semester)).sort((a,b)=>semesterRank(a)-semesterRank(b)).map(x=>`<option>${escapeHtml(x)}</option>`).join("");
+  $("classFilter").innerHTML='<option value="ALL">Semua Kelas</option>'+uniq(records.map(r=>r.kelas)).sort().map(x=>`<option>${escapeHtml(x)}</option>`).join("");
+  if([...$("semesterFilter").options].some(o=>o.value===oldS))$("semesterFilter").value=oldS;
+  if([...$("classFilter").options].some(o=>o.value===oldC))$("classFilter").value=oldC;
 }
-function renderAll(){initSubjects();updateFilters();renderDashboard();renderStudents();renderSubjects();renderSettings();renderTable()}
+$("semesterFilter").onchange=renderDashboard;$("classFilter").onchange=renderDashboard;
+function filtered(){
+  let d=[...records],s=$("semesterFilter").value,c=$("classFilter").value;
+  if(s&&s!=="ALL")d=d.filter(r=>r.semester===s);if(c&&c!=="ALL")d=d.filter(r=>r.kelas===c);return d;
+}
+function renderAll(){updateFilters();renderDashboard();renderPulse("pulseGrid");renderStudentList();renderSubjects();renderSettings();renderTable()}
 function renderDashboard(){
-  const d=filtered(),g=groups(rows),gf=groups(d);
-  $("totalStudents").innerText=gf.size;$("averageScore").innerText=fmt(avg(d.map(ravg)));
-  let up=0,w=0,a=0;g.forEach(x=>{let s=status(x)[1];if(s==="Meningkat")up++;if(s==="Dipantau")w++;if(s==="Perhatian")a++});let n=g.size||1;
-  $("upStudents").innerText=Math.round(up/n*100)+"%";$("upCount").innerText=up+" siswa";
-  $("watchStudents").innerText=Math.round(w/n*100)+"%";$("watchCount").innerText=w+" siswa";
-  $("alertStudents").innerText=Math.round(a/n*100)+"%";$("alertCount").innerText=a+" siswa";
-  const sems=uniq(rows.map(r=>r.semester)).sort();
-  chart("trend","trendChart",{type:"line",data:{labels:sems,datasets:[{label:"Rata-rata",data:sems.map(s=>avg(rows.filter(r=>r.semester===s).map(ravg))),tension:.3,fill:true}]},options:{plugins:{legend:{display:false}},scales:{y:{suggestedMin:0,suggestedMax:100}}}});
-  const ss=subjectKeys(rows),latest=sems.at(-1),prev=sems.at(-2);
-  const ch=ss.map(s=>({s,d:prev?avg(rows.filter(r=>r.semester===latest).map(r=>r[s]))-avg(rows.filter(r=>r.semester===prev).map(r=>r[s])):0}));
-  $("bestSubjects").innerHTML=[...ch].sort((a,b)=>b.d-a.d).slice(0,5).map(x=>`<div class="metric"><div><b>${label(x.s)}</b></div><div class="${x.d>=0?"up":"down"}">${x.d>=0?"+":""}${fmt(x.d)}</div></div>`).join("");
-  $("weakSubjects").innerHTML=[...ch].sort((a,b)=>a.d-b.d).slice(0,5).map(x=>`<div class="metric"><div><b>${label(x.s)}</b></div><div class="${x.d>=0?"up":"down"}">${x.d>=0?"+":""}${fmt(x.d)}</div></div>`).join("");
-  let growth=[];g.forEach((x,k)=>{let t=trend(x);if(t.length>1)growth.push({k,n:t.at(-1).nama,c:t.at(-1).kelas,v:ravg(t.at(-1))-ravg(t[0])})});growth.sort((a,b)=>b.v-a.v);
-  $("improvedStudents").innerHTML=growth.slice(0,5).map((x,i)=>`<div class="rank-row"><div><b>${i+1}. ${x.n}</b><small>Kelas ${x.c}</small></div><div class="${x.v>=0?"up":"down"}">${x.v>=0?"+":""}${fmt(x.v)}</div></div>`).join("");
-  renderPulse();
+  const d=filtered(),g=grouped(records),gf=grouped(d),gs=[...g.values()],total=gs.length||1;
+  $("kpiStudents").textContent=gf.size;$("kpiAverage").textContent=fmt(avg(d.map(rowAvg)));
+  const counts={Meningkat:0,Dipantau:0,Perhatian:0};gs.forEach(x=>{const s=status(x)[1];if(counts[s]!==undefined)counts[s]++});
+  $("kpiUp").textContent=Math.round(counts.Meningkat/total*100)+"%";$("kpiUpCount").textContent=counts.Meningkat+" siswa";
+  $("kpiWatch").textContent=Math.round(counts.Dipantau/total*100)+"%";$("kpiWatchCount").textContent=counts.Dipantau+" siswa";
+  $("kpiAlert").textContent=Math.round(counts.Perhatian/total*100)+"%";$("kpiAlertCount").textContent=counts.Perhatian+" siswa";
+  const sems=uniq(records.map(r=>r.semester)).sort((a,b)=>semesterRank(a)-semesterRank(b)),vals=sems.map(s=>avg(records.filter(r=>r.semester===s).map(rowAvg)));
+  const dAvg=vals.length>1?vals.at(-1)-vals.at(-2):0;$("kpiAverageDelta").textContent=vals.length>1?`${dAvg>=0?"↑":"↓"} ${fmt(Math.abs(dAvg))} dari semester lalu`:"Belum ada tren";
+  chart("trend","trendChart",{type:"line",data:{labels:sems,datasets:[{label:"Rata-rata",data:vals,tension:.35,fill:true}]},options:{plugins:{legend:{display:false}},scales:{y:{suggestedMin:0,suggestedMax:100}}}});
+  const changes=subjectKeys().map(s=>{const per=sems.map(sm=>avg(records.filter(r=>r.semester===sm).map(r=>r.scores?.[s])));return{s,d:per.length>1?per.at(-1)-per.at(-2):0}});
+  $("bestSubjects").innerHTML=changes.filter(x=>x.d>0).sort((a,b)=>b.d-a.d).slice(0,5).map(x=>metricSubject(x,true)).join("")||'<div class="empty">Belum ada peningkatan.</div>';
+  $("weakSubjects").innerHTML=changes.filter(x=>x.d<0).sort((a,b)=>a.d-b.d).slice(0,5).map(x=>metricSubject(x,false)).join("")||'<div class="empty">Tidak ada penurunan.</div>';
+  const growth=[];g.forEach((gr,k)=>{const t=trend(gr);if(t.length>1)growth.push({k,n:t.at(-1).nama,c:t.at(-1).kelas,v:rowAvg(t.at(-1))-rowAvg(t[0])})});growth.sort((a,b)=>b.v-a.v);
+  $("improvedStudents").innerHTML=growth.slice(0,5).map((x,i)=>`<div class="metric-row"><div><b>${i+1}. ${escapeHtml(x.n)}</b><small>Kelas ${escapeHtml(x.c||"-")}</small></div><span class="${x.v>=0?"up":"down"}">${x.v>=0?"+":""}${fmt(x.v)}</span></div>`).join("")||'<div class="empty">Butuh minimal 2 semester.</div>';
+  renderPulse("pulsePreview",12);
 }
-function renderPulse(){
-  let arr=[];groups(filtered()).forEach((g,k)=>{let t=trend(g),l=t.at(-1),s=status(g);arr.push({k,l,s,d:delta(g),a:ravg(l)})});arr.sort((a,b)=>a.l.nama.localeCompare(b.l.nama));
-  $("pulseGrid").innerHTML=arr.map(x=>`<div class="pulse-card" data-key="${encodeURIComponent(x.k)}"><h4>${x.s[0]} ${x.l.nama}</h4><small>${x.l.kelas||"-"} · ${x.l.nis||"-"}</small><b>${fmt(x.a)}</b><span class="${x.d>=0?"up":"down"}">${x.d>=0?"+":""}${fmt(x.d)}</span></div>`).join("")||'<div class="empty">Upload leger untuk memulai.</div>';
-  document.querySelectorAll(".pulse-card").forEach(el=>el.onclick=()=>{selected=decodeURIComponent(el.dataset.key);showPage("students");renderStudents();renderStudentProfile()});
+function metricSubject(x,pos){return`<div class="metric-row"><b>${escapeHtml(subjectLabel(x.s,true))}</b><span class="${pos?"up":"down"}">${pos?"+":""}${fmt(x.d)}</span></div>`}
+
+function renderPulse(target="pulseGrid",limit=null){
+  const arr=[];grouped(filtered()).forEach((g,k)=>{const t=trend(g),l=t.at(-1),st=status(g);arr.push({k,l,st,d:delta(g),a:rowAvg(l)})});arr.sort((a,b)=>a.l.nama.localeCompare(b.l.nama));const list=limit?arr.slice(0,limit):arr;
+  $(target).innerHTML=list.map(x=>`<div class="pulse-card" data-key="${encodeURIComponent(x.k)}"><h4>${x.st[0]} ${escapeHtml(x.l.nama)}</h4><small>${escapeHtml(x.l.kelas||"-")} · ${escapeHtml(x.l.nis||"-")}</small><div class="score">${fmt(x.a)}</div><div class="delta ${x.d>=0?"up":"down"}">${x.d>=0?"+":""}${fmt(x.d)} · ${x.st[1]}</div></div>`).join("")||'<div class="empty">Belum ada data nilai.</div>';
+  $(target).querySelectorAll(".pulse-card").forEach(el=>el.onclick=()=>{selectedStudent=decodeURIComponent(el.dataset.key);showPage("students");renderStudentList();renderStudentProfile()});
 }
-$("studentSearch").oninput=renderStudents;
-function renderStudents(){
-  const q=($("studentSearch").value||"").toLowerCase(),arr=[];groups(rows).forEach((g,k)=>{let l=trend(g).at(-1);if((l.nama+" "+l.nis).toLowerCase().includes(q))arr.push({k,l})});arr.sort((a,b)=>a.l.nama.localeCompare(b.l.nama));
-  $("studentList").innerHTML=arr.map(x=>`<div class="student-item" data-key="${encodeURIComponent(x.k)}"><b>${x.l.nama}</b><small>${x.l.nis||"-"} · ${x.l.kelas||"-"}</small></div>`).join("");
-  document.querySelectorAll(".student-item").forEach(el=>el.onclick=()=>{selected=decodeURIComponent(el.dataset.key);renderStudentProfile()});
+
+$("studentSearch").oninput=renderStudentList;
+function renderStudentList(){
+  const q=($("studentSearch").value||"").toLowerCase(),arr=[];grouped(records).forEach((g,k)=>{const l=trend(g).at(-1);if((l.nama+" "+l.nis).toLowerCase().includes(q))arr.push({k,l})});arr.sort((a,b)=>a.l.nama.localeCompare(b.l.nama));
+  $("studentList").innerHTML=arr.map(x=>`<div class="student-item ${selectedStudent===x.k?"active":""}" data-key="${encodeURIComponent(x.k)}"><b>${escapeHtml(x.l.nama)}</b><small>${escapeHtml(x.l.nis||"-")} · Kelas ${escapeHtml(x.l.kelas||"-")}</small></div>`).join("");
+  $("studentList").querySelectorAll(".student-item").forEach(el=>el.onclick=()=>{selectedStudent=decodeURIComponent(el.dataset.key);renderStudentList();renderStudentProfile()});
 }
 function renderStudentProfile(){
-  if(!selected)return;let g=groups(rows).get(selected),t=trend(g),l=t.at(-1),p=t.at(-2),growth=t.length>1?ravg(l)-ravg(t[0]):0,ss=subjectKeys(g);
-  let ranked=ss.map(s=>({s,v:Number(l[s])})).filter(x=>Number.isFinite(x.v)).sort((a,b)=>b.v-a.v),best=["",-1];ss.forEach(s=>t.forEach(r=>{let v=Number(r[s]);if(Number.isFinite(v)&&v>best[1])best=[s,v]}));
-  $("studentProfile").innerHTML=`<div class="profile"><div class="profile-left"><div class="avatar">${l.nama[0]}</div><div><h3>${l.nama}</h3><p>${l.kelas||"-"} • NIS ${l.nis||"-"}</p></div></div><div class="growth"><small>Growth Index</small><b>${growth>=0?"+":""}${fmt(growth)}</b></div></div><div class="mini-grid"><div><span>Rata-rata terakhir</span><b>${fmt(ravg(l))}</b></div><div><span>Sebelumnya</span><b>${p?fmt(ravg(p)):"-"}</b></div><div><span>Perubahan</span><b>${p?((ravg(l)-ravg(p)>=0?"+":"")+fmt(ravg(l)-ravg(p))):"-"}</b></div><div><span>Personal Best</span><b>${best[1]>=0?label(best[0])+" "+fmt(best[1]):"-"}</b></div></div>`;
+  if(!selectedStudent)return;const g=grouped(records).get(selectedStudent);if(!g)return;const t=trend(g),l=t.at(-1),prev=t.at(-2),growth=t.length>1?rowAvg(l)-rowAvg(t[0]):0,ss=subjectKeys(g);
+  const ranked=ss.map(s=>({s,v:Number(l.scores?.[s])})).filter(x=>Number.isFinite(x.v)).sort((a,b)=>b.v-a.v);let best={s:"",v:-Infinity};
+  ss.forEach(s=>t.forEach(r=>{const v=Number(r.scores?.[s]);if(Number.isFinite(v)&&v>best.v)best={s,v}}));
+  $("studentProfile").innerHTML=`<div class="profile"><div class="profile-left"><div class="avatar">${escapeHtml(l.nama?.[0]||"S")}</div><div><h3>${escapeHtml(l.nama)}</h3><p>${escapeHtml(l.kelas||"-")} · NIS ${escapeHtml(l.nis||"-")}</p></div></div><div class="growth-box"><small>Growth Index</small><b>${growth>=0?"+":""}${fmt(growth)}</b><small>${status(g)[1]}</small></div></div><div class="detail-kpis"><div><span>Rata-rata Terakhir</span><b>${fmt(rowAvg(l))}</b></div><div><span>Sebelumnya</span><b>${prev?fmt(rowAvg(prev)):"-"}</b></div><div><span>Perubahan</span><b>${prev?(rowAvg(l)-rowAvg(prev)>=0?"+":"")+fmt(rowAvg(l)-rowAvg(prev)):"-"}</b></div><div><span>Personal Best</span><b>${best.v>-Infinity?escapeHtml(subjectLabel(best.s,true))+" "+fmt(best.v):"-"}</b></div></div>`;
   $("journeyPanel").classList.remove("hidden");$("strengthGrid").classList.remove("hidden");
-  chart("student","studentChart",{type:"line",data:{labels:t.map(r=>r.semester),datasets:[{label:"Rata-rata",data:t.map(ravg),tension:.3,fill:true}]},options:{plugins:{legend:{display:false}},scales:{y:{suggestedMin:0,suggestedMax:100}}}});
-  $("strengths").innerHTML=ranked.slice(0,3).map(x=>`<div class="metric"><b>${label(x.s)}</b><b>${fmt(x.v)}</b></div>`).join("");
-  $("focus").innerHTML=ranked.slice(-3).reverse().map(x=>`<div class="metric"><b>${label(x.s)}</b><b>${fmt(x.v)}</b></div>`).join("");
+  $("studentSubjectSelect").innerHTML='<option value="AVG">Rata-rata Semua Mapel</option>'+ss.map(s=>`<option value="${escapeAttr(s)}">${escapeHtml(subjectLabel(s))}</option>`).join("");
+  $("studentSubjectSelect").onchange=renderStudentChart;renderStudentChart();
+  $("strengths").innerHTML=ranked.slice(0,3).map(x=>`<div class="strength-row"><b>${escapeHtml(subjectLabel(x.s))}</b><b>${fmt(x.v)}</b></div>`).join("")||'<div class="empty">-</div>';
+  $("focus").innerHTML=ranked.slice(-3).reverse().map(x=>`<div class="strength-row"><b>${escapeHtml(subjectLabel(x.s))}</b><b>${fmt(x.v)}</b></div>`).join("")||'<div class="empty">-</div>';
 }
-function renderSubjects(){let ss=subjectKeys(rows);$("subjectSelect").innerHTML=ss.map(s=>`<option value="${s}">${label(s)}</option>`).join("");$("subjectSelect").onchange=renderSubjectChart;renderSubjectChart()}
-function renderSubjectChart(){let s=$("subjectSelect").value;if(!s)return;let sems=uniq(rows.map(r=>r.semester)).sort();chart("subject","subjectChart",{type:"line",data:{labels:sems,datasets:[{label:label(s),data:sems.map(m=>avg(rows.filter(r=>r.semester===m).map(r=>r[s]))),tension:.3,fill:true}]},options:{scales:{y:{suggestedMin:0,suggestedMax:100}}}})}
-function renderSettings(){initSubjects();$("subjectSettings").innerHTML=subjects.map((x,i)=>`<div class="setting-row"><b>${i+1}</b><input data-i="${i}" value="${x.name}"><select data-i="${i}"><option value="true" ${x.active!==false?"selected":""}>Aktif</option><option value="false" ${x.active===false?"selected":""}>Nonaktif</option></select></div>`).join("");document.querySelectorAll("#subjectSettings input").forEach(el=>el.onchange=()=>{subjects[+el.dataset.i].name=el.value;saveSubjects()});document.querySelectorAll("#subjectSettings select").forEach(el=>el.onchange=()=>{subjects[+el.dataset.i].active=el.value==="true";saveSubjects()})}
-function saveSubjects(){localStorage.setItem("pakkom_repo_subjects",JSON.stringify(subjects));renderDashboard()}
-function norm(raw){let m={};Object.entries(raw).forEach(([k,v])=>m[String(k).trim().toLowerCase()]=v);let get=(...ks)=>{for(let k of ks)if(m[k]!==undefined&&m[k]!=="")return m[k];return""};let r={nis:String(get("nis","nisn","id")).trim(),nama:String(get("nama","nama siswa","siswa")).trim(),kelas:String(get("kelas","rombel","class")).trim(),semester:String(get("semester","smt","periode")).trim()};Object.entries(m).forEach(([k,v])=>{if(!["nis","nisn","id","nama","nama siswa","siswa","kelas","rombel","class","semester","smt","periode"].includes(k)){let n=Number(v);if(v!==""&&Number.isFinite(n))r[k]=n}});return r}
-$("excelFile").onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let b=await f.arrayBuffer(),w=XLSX.read(b,{type:"array"}),raw=XLSX.utils.sheet_to_json(w.Sheets[w.SheetNames[0]],{defval:""});pending=raw.map(norm);let valid=pending.filter(x=>x.nama&&x.semester),sub=subjectKeys(valid);$("preview").innerHTML=`<div class="metric"><span>File</span><b>${f.name}</b></div><div class="metric"><span>Siswa ditemukan</span><b>${new Set(valid.map(key)).size}</b></div><div class="metric"><span>Mata pelajaran</span><b>${sub.length}</b></div><div class="metric"><span>Data valid</span><b>${valid.length}</b></div><div class="metric"><span>Data bermasalah</span><b>${pending.length-valid.length}</b></div>`;$("mapping").innerHTML=Object.keys(raw[0]||{}).map(c=>`<div class="metric"><b>${c}</b><span>${guess(c)}</span></div>`).join("");$("saveImport").classList.remove("hidden")}catch(err){$("preview").innerText="Gagal membaca file: "+err.message}}
-function guess(c){let k=String(c).toLowerCase();if(["nis","nisn","id"].includes(k))return"NIS/NISN";if(["nama","nama siswa","siswa"].includes(k))return"Nama";if(["kelas","rombel","class"].includes(k))return"Kelas";if(["semester","smt","periode"].includes(k))return"Semester";return"Mata Pelajaran / Angka"}
-$("saveImport").onclick=()=>{let valid=pending.filter(x=>x.nama&&x.semester),m=new Map(rows.map(r=>[key(r)+"|"+r.semester,r]));valid.forEach(r=>m.set(key(r)+"|"+r.semester,r));rows=[...m.values()];localStorage.setItem("pakkom_repo_rows",JSON.stringify(rows));pending=[];$("preview").innerHTML="<b>Data berhasil disimpan.</b>";$("saveImport").classList.add("hidden");renderAll()}
-function renderTable(){let keys=["nis","nama","kelas","semester",...subjectKeys(rows)];$("dataTable").querySelector("thead").innerHTML="<tr>"+keys.map(k=>`<th>${label(k)}</th>`).join("")+"</tr>";$("dataTable").querySelector("tbody").innerHTML=rows.map(r=>"<tr>"+keys.map(k=>`<td>${r[k]??""}</td>`).join("")+"</tr>").join("")}
-function clearData(){if(confirm("Hapus semua data?")){rows=[];localStorage.removeItem("pakkom_repo_rows");renderAll()}}
+function renderStudentChart(){
+  const g=grouped(records).get(selectedStudent),t=trend(g),s=$("studentSubjectSelect").value,vals=t.map(r=>s==="AVG"?rowAvg(r):Number(r.scores?.[s]||0));
+  chart("student","studentChart",{type:"line",data:{labels:t.map(r=>r.semester),datasets:[{label:s==="AVG"?"Rata-rata":subjectLabel(s),data:vals,tension:.35,fill:true}]},options:{scales:{y:{suggestedMin:0,suggestedMax:100}}}});
+}
+
+$("subjectSelect").onchange=renderSubjectChart;
+function renderSubjects(){
+  const ss=subjectKeys(),old=$("subjectSelect").value;$("subjectSelect").innerHTML=ss.map(s=>`<option value="${escapeAttr(s)}">${escapeHtml(subjectLabel(s))}</option>`).join("");if(ss.includes(old))$("subjectSelect").value=old;renderSubjectChart()
+}
+function renderSubjectChart(){
+  const s=$("subjectSelect").value;if(!s)return;const sems=uniq(records.map(r=>r.semester)).sort((a,b)=>semesterRank(a)-semesterRank(b)),vals=sems.map(sm=>avg(records.filter(r=>r.semester===sm).map(r=>r.scores?.[s])));
+  chart("subject","subjectChart",{type:"line",data:{labels:sems,datasets:[{label:subjectLabel(s),data:vals,tension:.35,fill:true}]},options:{scales:{y:{suggestedMin:0,suggestedMax:100}}}});
+  $("subjectStats").innerHTML=`<div><span>Nilai Terakhir</span><b>${fmt(vals.at(-1))}</b></div><div><span>Tertinggi</span><b>${vals.length?fmt(Math.max(...vals)):"-"}</b></div><div><span>Terendah</span><b>${vals.length?fmt(Math.min(...vals)):"-"}</b></div><div><span>Perubahan Total</span><b>${vals.length>1?fmt(vals.at(-1)-vals[0]):"-"}</b></div>`;
+}
+
+function renderSettings(){
+  ensureSubjectObjects();const sorted=[...subjects].sort((a,b)=>(a.order??999)-(b.order??999));
+  $("subjectSettingsTable").querySelector("tbody").innerHTML=sorted.map(s=>`<tr data-id="${escapeAttr(s.id||s.key)}"><td><input class="settings-input order-input" type="number" value="${Number(s.order??999)}"></td><td>${escapeHtml(s.key)}</td><td><input class="settings-input name-input" value="${escapeAttr(s.name||titleCase(s.key))}"></td><td><input class="settings-input short-input" value="${escapeAttr(s.short||s.name||titleCase(s.key))}"></td><td><select class="settings-input active-input"><option value="true" ${s.active!==false?"selected":""}>Aktif</option><option value="false" ${s.active===false?"selected":""}>Nonaktif</option></select></td><td><button class="btn secondary save-subject">Simpan</button></td></tr>`).join("");
+  $("subjectSettingsTable").querySelectorAll(".save-subject").forEach(btn=>btn.onclick=async()=>{
+    const tr=btn.closest("tr"),id=tr.dataset.id,key=subjects.find(x=>(x.id||x.key)===id)?.key||id;
+    const payload={key,name:tr.querySelector(".name-input").value.trim()||titleCase(key),short:tr.querySelector(".short-input").value.trim()||titleCase(key),order:Number(tr.querySelector(".order-input").value||999),active:tr.querySelector(".active-input").value==="true",updatedAt:serverTimestamp()};
+    btn.disabled=true;btn.textContent="Menyimpan…";
+    try{await setDoc(doc(db,"subjects",key),payload,{merge:true});await reloadData()}catch(e){alert("Gagal menyimpan mapel: "+e.message)}finally{btn.disabled=false;btn.textContent="Simpan"}
+  });
+}
+
+function renderTable(){
+  const ss=subjectKeys(records,false),headers=["nis","nama","kelas","semester",...ss];
+  $("recordsTable").querySelector("thead").innerHTML="<tr>"+headers.map(h=>`<th>${escapeHtml(CORE.includes(h)?titleCase(h):subjectLabel(h,true))}</th>`).join("")+"</tr>";
+  $("recordsTable").querySelector("tbody").innerHTML=records.map(r=>"<tr>"+headers.map(h=>`<td>${escapeHtml(CORE.includes(h)?r[h]??"":r.scores?.[h]??"")}</td>`).join("")+"</tr>").join("");
+}
+$("refreshBtn").onclick=reloadData;
+$("deleteAllBtn").onclick=async()=>{
+  if(!confirm("Hapus SEMUA data nilai dari Firebase? Pengaturan mapel tidak dihapus."))return;
+  try{setSync("Menghapus…");await deleteCollectionDocs("records");await reloadData()}catch(e){alert("Gagal menghapus: "+e.message);setSync("Gagal",false)}
+};
+
+$("excelFile").onchange=async e=>{
+  const file=e.target.files[0];if(!file)return;
+  try{
+    const buf=await file.arrayBuffer(),wb=XLSX.read(buf,{type:"array"}),ws=wb.Sheets[wb.SheetNames[0]],raw=XLSX.utils.sheet_to_json(ws,{defval:""});
+    pendingFileRows=raw;pendingHeaders=Object.keys(raw[0]||{});
+    if(!raw.length)throw new Error("Sheet pertama kosong.");
+    $("fileInfo").textContent=`${file.name} · ${raw.length} baris ditemukan`;
+    buildMapping();$("rebuildPreviewBtn").disabled=false;buildImportPreview();
+  }catch(err){setMessage("fileInfo","Gagal membaca file: "+err.message,true)}
+  e.target.value="";
+};
+function normalizeHeader(h){return String(h||"").trim().toLowerCase().replace(/\s+/g," ").replace(/[._-]+/g," ")}
+function guessType(h){
+  const k=normalizeHeader(h);
+  if(["nis","nisn","no induk","nomor induk","id siswa"].includes(k))return"nis";
+  if(["nama","nama siswa","siswa","nama lengkap"].includes(k))return"nama";
+  if(["kelas","rombel","class"].includes(k))return"kelas";
+  if(["semester","smt","periode"].includes(k))return"semester";
+  if(/ranking|peringkat|jumlah|rata.?rata|sakit|izin|alpa|absen|kehadiran/i.test(k))return"ignore";
+  return"subject";
+}
+function slug(s){return normalizeHeader(s).replace(/[^a-z0-9 ]/g,"").trim().replace(/\s+/g,"_")}
+function buildMapping(){
+  $("mappingGrid").innerHTML=pendingHeaders.map((h,i)=>{
+    const type=guessType(h);
+    return `<div class="mapping-card" data-type="${type}" data-index="${i}"><strong>${escapeHtml(h)}</strong><select class="map-type"><option value="ignore" ${type==="ignore"?"selected":""}>Abaikan</option><option value="nis" ${type==="nis"?"selected":""}>NIS / NISN</option><option value="nama" ${type==="nama"?"selected":""}>Nama Siswa</option><option value="kelas" ${type==="kelas"?"selected":""}>Kelas</option><option value="semester" ${type==="semester"?"selected":""}>Semester</option><option value="subject" ${type==="subject"?"selected":""}>Mata Pelajaran</option></select><input class="mapel-name" value="${escapeAttr(h)}" placeholder="Nama mapel"></div>`;
+  }).join("");
+  $("mappingGrid").querySelectorAll(".map-type").forEach(s=>s.onchange=()=>{s.closest(".mapping-card").dataset.type=s.value;buildImportPreview()});
+  $("mappingGrid").querySelectorAll(".mapel-name").forEach(i=>i.oninput=debounce(buildImportPreview,250));
+}
+$("rebuildPreviewBtn").onclick=buildImportPreview;
+function getMapping(){
+  return [...$("mappingGrid").querySelectorAll(".mapping-card")].map(card=>({header:pendingHeaders[Number(card.dataset.index)],type:card.querySelector(".map-type").value,subjectName:card.querySelector(".mapel-name").value.trim()}));
+}
+function buildImportPreview(){
+  if(!pendingFileRows.length)return;
+  const map=getMapping(),required=["nama","semester"],errors=[];
+  required.forEach(t=>{if(!map.some(m=>m.type===t))errors.push(`Kolom ${t==="nama"?"Nama":"Semester"} belum dipilih.`)});
+  const duplicateCore=["nis","nama","kelas","semester"].filter(t=>map.filter(m=>m.type===t).length>1);if(duplicateCore.length)errors.push("Mapping inti ganda: "+duplicateCore.join(", "));
+  const subjectMaps=map.filter(m=>m.type==="subject"&&m.subjectName);if(!subjectMaps.length)errors.push("Belum ada mata pelajaran.");
+  const parsed=errors.length?[]:pendingFileRows.map(raw=>parseMappedRow(raw,map));
+  const valid=parsed.filter(r=>r.nama&&r.semester&&Object.keys(r.scores).length);
+  const invalid=pendingFileRows.length-valid.length;
+  const students=new Set(valid.map(studentKey)).size;
+  $("importSummary").innerHTML=`<div class="preview-row"><span>Baris file</span><b>${pendingFileRows.length}</b></div><div class="preview-row"><span>Siswa unik</span><b>${students}</b></div><div class="preview-row"><span>Mata pelajaran</span><b>${subjectMaps.length}</b></div><div class="preview-row"><span>Data valid</span><b class="good">${valid.length}</b></div><div class="preview-row"><span>Data bermasalah</span><b class="${invalid?"bad":"good"}">${invalid}</b></div>${errors.map(e=>`<div class="message error">${escapeHtml(e)}</div>`).join("")}`;
+  $("saveImportBtn").disabled=!!errors.length||!valid.length||students>60;
+  if(students>60)$("importSummary").insertAdjacentHTML("beforeend",'<div class="message error">Jumlah siswa melebihi batas desain 60 siswa.</div>');
+}
+function parseMappedRow(raw,map){
+  const r={nis:"",nama:"",kelas:"",semester:"",scores:{}};
+  map.forEach(m=>{
+    const v=raw[m.header];
+    if(["nis","nama","kelas","semester"].includes(m.type))r[m.type]=String(v??"").trim();
+    else if(m.type==="subject"&&m.subjectName){
+      const n=Number(v);if(v!==""&&Number.isFinite(n))r.scores[slug(m.subjectName)]=n;
+    }
+  });return r;
+}
+$("saveImportBtn").onclick=async()=>{
+  const map=getMapping(),parsed=pendingFileRows.map(raw=>parseMappedRow(raw,map)),valid=parsed.filter(r=>r.nama&&r.semester&&Object.keys(r.scores).length);
+  if(!valid.length)return;
+  $("saveImportBtn").disabled=true;setMessage("saveProgress","Menyimpan ke Firebase…");
+  try{
+    const prepared=valid.map(r=>({...r,id:recordId(r)}));
+    await batchSet("records",prepared.map(r=>({id:r.id,data:{nis:r.nis,nama:r.nama,kelas:r.kelas,semester:r.semester,scores:r.scores,updatedAt:serverTimestamp()}})));
+    const subMap=new Map();map.filter(m=>m.type==="subject"&&m.subjectName).forEach((m,i)=>{const key=slug(m.subjectName);subMap.set(key,{id:key,data:{key,name:m.subjectName,short:m.subjectName,order:i+1,active:true,updatedAt:serverTimestamp()}})});
+    await batchSet("subjects",[...subMap.values()]);
+    pendingFileRows=[];pendingHeaders=[];$("mappingGrid").innerHTML='<div class="empty">Import selesai.</div>';$("importSummary").innerHTML='<div class="message success">Data berhasil disimpan ke Firebase.</div>';setMessage("saveProgress","Sinkronisasi selesai.");await reloadData();
+  }catch(e){console.error(e);setMessage("saveProgress","Gagal menyimpan: "+e.message,true)}finally{$("saveImportBtn").disabled=false}
+};
+function recordId(r){
+  const base=`${r.nis||r.nama}_${r.kelas}_${r.semester}`.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,"");
+  return base.slice(0,220)||crypto.randomUUID();
+}
+async function batchSet(collectionName,items){
+  for(let i=0;i<items.length;i+=450){
+    const batch=writeBatch(db);items.slice(i,i+450).forEach(item=>batch.set(doc(db,collectionName,item.id),item.data,{merge:true}));await batch.commit();
+  }
+}
+async function deleteCollectionDocs(collectionName){
+  const snap=await getDocs(collection(db,collectionName)),docs=snap.docs;
+  for(let i=0;i<docs.length;i+=450){const batch=writeBatch(db);docs.slice(i,i+450).forEach(d=>batch.delete(d.ref));await batch.commit()}
+}
+
+function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+function escapeAttr(v){return escapeHtml(v)}
+function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}}
