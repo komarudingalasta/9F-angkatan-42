@@ -189,7 +189,11 @@ V6 otomatis membangun ulang:
 setelah admin menyimpan leger ke Firebase.
 
 
-## V7
-Username siswa = NIS. Password default otomatis = 123456.
-Admin dapat membuat seluruh akun sekaligus melalui Pengaturan > Akses Login Siswa > Buat Akses Semua Siswa.
-Akun yang sudah ada tidak dibuat ganda.
+## V8 — Sidebar readable + Logout + password otomatis
+
+- Desktop/tablet: menu menggunakan sidebar dengan ikon dan tulisan.
+- HP: tombol **☰ Menu** membuka sidebar dari kiri. Sidebar tetap menampilkan ikon **dan tulisan**, bukan ikon saja.
+- Tombol **Keluar** selalu tersedia di bagian bawah sidebar.
+- Siswa: username = NIS, password default = `123456`.
+- Admin dapat membuat akun seluruh siswa sekaligus.
+- Portal siswa hanya menampilkan nilai sendiri, rata-rata mapel kelas, rata-rata rapor kelas, dan ranking dirinya.

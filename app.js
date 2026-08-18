@@ -459,9 +459,9 @@ function latestStudentRows(){
   const byNis=new Map();
   records.forEach(r=>{
     if(!r.nis)return;
-    const k=String(r.nis);
-    const prev=byNis.get(k);
-    if(!prev||semesterRank(r.semester)>=semesterRank(prev.semester))byNis.set(k,r);
+    const key=String(r.nis);
+    const prev=byNis.get(key);
+    if(!prev || semesterRank(r.semester)>=semesterRank(prev.semester))byNis.set(key,r);
   });
   return [...byNis.values()].sort((a,b)=>(a.nama||"").localeCompare(b.nama||""));
 }
@@ -491,22 +491,24 @@ async function createOneStudentAccess(student){
 $("createAccessBtn")?.addEventListener("click",async()=>{
   const nis=$("accessStudentSelect").value;
   if(!nis)return setMessage("accessMessage","Pilih siswa terlebih dahulu.",true);
-  const s=latestStudentRows().find(x=>String(x.nis)===String(nis));
-  if(!s)return setMessage("accessMessage","Siswa tidak ditemukan.",true);
+  const student=latestStudentRows().find(s=>String(s.nis)===String(nis));
+  if(!student)return setMessage("accessMessage","Data siswa tidak ditemukan.",true);
   try{
-    setMessage("accessMessage","Membuat akses…");
-    const status=await createOneStudentAccess(s);
-    setMessage("accessMessage",status==="created"
-      ?`Akses dibuat. NIS: ${nis} · Password: ${DEFAULT_STUDENT_PASSWORD}`
-      :`Akun NIS ${nis} sudah ada dan tidak dibuat ganda.`);
+    setMessage("accessMessage","Membuat akses siswa…");
+    const result=await createOneStudentAccess(student);
+    setMessage("accessMessage",result==="created"
+      ?`Akses berhasil dibuat. NIS: ${nis} · Password: ${DEFAULT_STUDENT_PASSWORD}`
+      :`Akun NIS ${nis} sudah ada sehingga tidak dibuat ganda.`);
     await renderStudentAccess();
-  }catch(e){setMessage("accessMessage","Gagal: "+e.message,true)}
+  }catch(e){
+    console.error(e);setMessage("accessMessage","Gagal membuat akses: "+(e.message||e),true);
+  }
 });
 
 $("createAllAccessBtn")?.addEventListener("click",async()=>{
   const students=latestStudentRows();
-  if(!students.length)return setMessage("accessMessage","Upload leger terlebih dahulu.",true);
-  if(!confirm(`Buat akses ${students.length} siswa?\nUsername: NIS\nPassword: ${DEFAULT_STUDENT_PASSWORD}`))return;
+  if(!students.length)return setMessage("accessMessage","Belum ada siswa. Upload leger terlebih dahulu.",true);
+  if(!confirm(`Buat akses untuk ${students.length} siswa?\n\nUsername: NIS masing-masing\nPassword default: ${DEFAULT_STUDENT_PASSWORD}`))return;
   let created=0,exists=0,failed=0;
   $("createAllAccessBtn").disabled=true;
   try{
@@ -514,11 +516,25 @@ $("createAllAccessBtn")?.addEventListener("click",async()=>{
       const s=students[i];
       setMessage("accessMessage",`Proses ${i+1}/${students.length}: ${s.nis} — ${s.nama}`);
       try{
-        const status=await createOneStudentAccess(s);
-        status==="created"?created++:exists++;
-      }catch(e){console.error(e);failed++}
+        const result=await createOneStudentAccess(s);
+        result==="created"?created++:exists++;
+      }catch(e){console.error("Gagal:",s.nis,e);failed++}
     }
-    setMessage("accessMessage",`Selesai: ${created} akun dibuat, ${exists} sudah ada${failed?`, ${failed} gagal`:""}. Password akun baru: ${DEFAULT_STUDENT_PASSWORD}`,failed>0);
+    setMessage("accessMessage",
+      `Selesai. ${created} akun baru dibuat, ${exists} sudah ada${failed?`, ${failed} gagal`:""}. Password akun baru: ${DEFAULT_STUDENT_PASSWORD}`,
+      failed>0);
     await renderStudentAccess();
-  }finally{$("createAllAccessBtn").disabled=false}
+  }finally{
+    $("createAllAccessBtn").disabled=false;
+  }
 });
+
+// Sidebar mobile: always icon + text, opened with Menu button.
+const sidebar=document.querySelector(".sidebar");
+const sidebarBackdrop=$("sidebarBackdrop");
+function openSidebar(){sidebar?.classList.add("open");sidebarBackdrop?.classList.remove("hidden")}
+function closeSidebar(){sidebar?.classList.remove("open");sidebarBackdrop?.classList.add("hidden")}
+$("sidebarToggle")?.addEventListener("click",openSidebar);
+sidebarBackdrop?.addEventListener("click",closeSidebar);
+document.querySelectorAll(".sidebar .nav[data-page]").forEach(btn=>btn.addEventListener("click",()=>{if(innerWidth<=900)closeSidebar()}));
+$("logoutBtn")?.addEventListener("click",closeSidebar);

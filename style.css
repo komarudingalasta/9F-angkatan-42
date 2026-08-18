@@ -35,4 +35,49 @@
 }
 @media(max-width:460px){.student-summary{grid-template-columns:1fr}}
 
-.access-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}.default-password-note{font-size:9px;color:var(--muted);background:#f7f9fc;border:1px solid var(--line);padding:8px 10px;border-radius:9px}.default-password-note b{color:var(--blue);font-size:11px}.student-access-form{grid-template-columns:1.4fr auto}@media(max-width:680px){.access-actions{display:grid}.access-actions .btn{width:100%}.student-access-form{grid-template-columns:1fr}}
+/* V8 — readable sidebar on every screen */
+.access-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}
+.default-password-note{font-size:9px;color:var(--muted);background:#f7f9fc;border:1px solid var(--line);padding:8px 10px;border-radius:9px}
+.default-password-note b{color:var(--blue);font-size:11px}
+.student-access-form{grid-template-columns:1.4fr auto}
+.sidebar-toggle{display:none;border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 10px;font-weight:800;color:var(--text);cursor:pointer}
+.sidebar-backdrop{display:none}
+
+@media(max-width:900px){
+  .app{display:block}
+  .main{padding:12px 10px}
+  .sidebar{
+    display:flex!important;position:fixed!important;left:0;top:0;bottom:0;
+    width:235px!important;height:100vh!important;z-index:150;
+    transform:translateX(-105%);transition:transform .22s ease;
+    box-shadow:18px 0 45px rgba(18,36,70,.18);
+    padding:14px 10px!important
+  }
+  .sidebar.open{transform:translateX(0)}
+  .sidebar .brand{justify-content:flex-start!important;padding:0 5px 14px!important}
+  .sidebar .brand>div:last-child{display:block!important}
+  .sidebar nav{display:grid!important;overflow:auto}
+  .sidebar .nav{justify-content:flex-start!important;font-size:10px!important;padding:9px 10px!important}
+  .sidebar .nav span{display:inline!important;font-size:10px!important}
+  .sidebar .nav-label{display:block!important}
+  .sidebar .account-card>div:last-child,.sidebar .sync-card>div{display:block!important}
+  .sidebar .logout-btn{font-size:10px!important;text-align:left!important}
+  .sidebar .logout-btn span{display:inline!important}
+  .sidebar-toggle{display:inline-flex;align-items:center;gap:6px}
+  .sidebar-backdrop{position:fixed;inset:0;background:rgba(15,28,48,.38);z-index:140}
+  .sidebar-backdrop:not(.hidden){display:block}
+  .topbar{display:flex;align-items:center;gap:9px}
+  .topbar>div:nth-child(2){flex:1}
+  .student-access-form{grid-template-columns:1fr}
+}
+@media(max-width:680px){
+  .app{display:block!important}
+  .sidebar{width:235px!important}
+  .sidebar .brand>div:last-child,.sidebar .nav span,.sidebar .nav-label,
+  .sidebar .account-card>div:last-child,.sidebar .sync-card>div,.sidebar .logout-btn span{
+    display:block!important
+  }
+  .sidebar .nav span,.sidebar .logout-btn span{display:inline!important}
+  .main{padding:9px}
+  .access-actions{display:grid}.access-actions .btn{width:100%}
+}
