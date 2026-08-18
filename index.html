@@ -115,12 +115,22 @@
       <section id="uploadPage" class="page hidden">
         <div class="grid upload-grid">
           <article class="panel">
-            <h3>1. Pilih Leger Excel</h3>
-            <p>File dibaca di browser. File Excel asli tidak diunggah ke Firebase.</p>
+            <h3>1. Siapkan & Pilih Leger Excel</h3>
+            <p>Gunakan template agar struktur data mudah dikenali. Nama dan jumlah mata pelajaran boleh disesuaikan.</p>
+            <div class="format-guide">
+              <div><b>Kolom inti</b><span>NIS/NISN · Nama · Kelas · Semester</span></div>
+              <div><b>Kolom mapel</b><span>Tambahkan sebanyak yang dibutuhkan. Nama mapel bebas.</span></div>
+              <div><b>Nilai</b><span>Isi angka nilai, misalnya 0–100.</span></div>
+            </div>
+            <a class="btn secondary template-download" href="template-upload-pakkom-student-analytics.xlsx" download>⬇ Download Template Excel</a>
+            <div class="format-example">
+              <b>Contoh header:</b>
+              <code>NIS | Nama | Kelas | Semester | Matematika | IPA | Bahasa Indonesia | ...</code>
+            </div>
             <label class="dropzone">
               <div class="upload-icon">⇧</div>
               <b>Pilih file .xlsx / .xls</b>
-              <span>Data baru disimpan setelah Anda menekan Simpan.</span>
+              <span>File dibaca di browser dan baru disimpan ke Firebase setelah Anda menekan Simpan.</span>
               <input id="excelFile" type="file" accept=".xlsx,.xls" hidden>
             </label>
             <div id="fileInfo" class="message"></div>

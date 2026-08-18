@@ -138,3 +138,8 @@ Versi rules repository ini cocok untuk sistem sederhana dengan hanya akun admin 
 Tidak ada file Excel yang disimpan ke Firebase. Browser membaca Excel menggunakan SheetJS, lalu hanya data nilai hasil parsing yang dikirim ke Firestore.
 
 Saat upload, selalu periksa Mapping Kolom dan Preview Import sebelum memilih **Simpan Data Valid ke Firebase**.
+
+
+## Template Upload Excel
+File `template-upload-pakkom-student-analytics.xlsx` sudah tersedia di repository dan dapat diunduh langsung dari halaman Upload Leger.
+Kolom inti: NIS/NISN, Nama, Kelas, Semester. Setelahnya boleh menambahkan mata pelajaran sebanyak yang dibutuhkan.
