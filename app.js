@@ -1,212 +1,103 @@
 
-const DEFAULT_USER = { username: "admin", password: "123456" };
-let rows = JSON.parse(localStorage.getItem("pakkom_rows") || "[]");
-let charts = {};
-let selectedStudentKey = null;
+const $=id=>document.getElementById(id);
+let rows=JSON.parse(localStorage.getItem("pakkom_repo_rows")||"[]");
+let subjects=JSON.parse(localStorage.getItem("pakkom_repo_subjects")||"[]");
+let pending=[];
+let charts={};
+let selected=null;
 
-const $ = id => document.getElementById(id);
-const core = ["nis","nama","kelas","semester"];
+function login(){
+  if($("user").value==="admin" && $("pass").value==="123456"){
+    sessionStorage.pakkomRepo="1"; showApp();
+  } else $("loginError").innerText="Username atau password salah.";
+}
+function logout(){sessionStorage.removeItem("pakkomRepo");location.reload();}
+function showApp(){$("login").classList.add("hidden");$("app").classList.remove("hidden");renderAll();}
+if(sessionStorage.pakkomRepo==="1")showApp();
 
-function normalizeKey(k){
-  return String(k || "").trim().toLowerCase()
-    .replace(/\s+/g," ")
-    .replace("no. induk","nis")
-    .replace("no induk","nis");
+document.querySelectorAll(".nav").forEach(btn=>btn.onclick=()=>showPage(btn.dataset.page));
+function showPage(page){
+  document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
+  $(page+"Page").classList.remove("hidden");
+  document.querySelectorAll(".nav").forEach(n=>n.classList.toggle("active",n.dataset.page===page));
+  const meta={dashboard:["Dashboard","Ringkasan perkembangan akademik"],upload:["Upload Leger","Import dan validasi data nilai"],data:["Data Nilai","Data akademik tersimpan"],students:["Perkembangan Siswa","Student Journey dan Growth Index"],subjects:["Analisis Mapel","Tren nilai per mata pelajaran"],settings:["Mata Pelajaran","Atur nama dan singkatan mapel"]};
+  $("title").innerText=meta[page][0];$("subtitle").innerText=meta[page][1];
+  if(page==="students")renderStudents(); if(page==="subjects")renderSubjects(); if(page==="settings")renderSettings(); if(page==="data")renderTable();
 }
-function normalizeRow(raw){
-  const mapped={};
-  Object.entries(raw).forEach(([k,v])=> mapped[normalizeKey(k)] = v);
-  const get=(...keys)=> {
-    for(const k of keys) if(mapped[k]!==undefined && mapped[k]!==null && mapped[k]!=="") return mapped[k];
-    return "";
-  };
-  const result={
-    nis:String(get("nis","nisn","id siswa","id")).trim(),
-    nama:String(get("nama","nama siswa","siswa")).trim(),
-    kelas:String(get("kelas","class")).trim(),
-    semester:String(get("semester","smt","periode")).trim()
-  };
-  Object.entries(mapped).forEach(([k,v])=>{
-    if(!["nis","nisn","id siswa","id","nama","nama siswa","siswa","kelas","class","semester","smt","periode"].includes(k)){
-      const n=Number(v);
-      if(v!=="" && Number.isFinite(n)) result[k]=n;
-    }
-  });
-  return result;
-}
+const uniq=a=>[...new Set(a.filter(Boolean))];
+const avg=a=>{a=a.map(Number).filter(Number.isFinite);return a.length?a.reduce((x,y)=>x+y,0)/a.length:0};
+const fmt=n=>Number(n||0).toFixed(1).replace(".0","");
+function key(r){return r.nis||r.nama+"|"+r.kelas}
 function subjectKeys(data=rows){
-  const set=new Set();
-  data.forEach(r=>Object.keys(r).forEach(k=>{ if(!core.includes(k) && Number.isFinite(Number(r[k]))) set.add(k); }));
-  return [...set].sort();
+  const set=new Set;
+  data.forEach(r=>Object.keys(r).forEach(k=>{if(!["nis","nama","kelas","semester"].includes(k)&&Number.isFinite(Number(r[k])))set.add(k)}));
+  return [...set].filter(k=>subjects.find(x=>x.key===k)?.active!==false).sort();
 }
-function unique(vals){ return [...new Set(vals.filter(Boolean))]; }
-function avg(nums){ const v=nums.map(Number).filter(Number.isFinite); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : 0; }
-function rowAvg(r){ return avg(subjectKeys([r]).map(k=>r[k])); }
-function studentKey(r){ return r.nis || `${r.nama}|${r.kelas}`; }
-function filteredRows(){
-  let d=[...rows];
-  const s=$("semesterFilter").value, c=$("classFilter").value;
-  if(s && s!=="ALL") d=d.filter(r=>r.semester===s);
-  if(c && c!=="ALL") d=d.filter(r=>r.kelas===c);
-  return d;
-}
-function groupedStudents(data=rows){
-  const m=new Map();
-  data.forEach(r=>{
-    const key=studentKey(r);
-    if(!m.has(key)) m.set(key,[]);
-    m.get(key).push(r);
-  });
-  return m;
-}
-function destroyChart(name){ if(charts[name]) charts[name].destroy(); }
-function createChart(name, canvasId, config){
-  destroyChart(name);
-  charts[name]=new Chart($(canvasId),config);
-}
-function fmt(n){ return Number(n||0).toFixed(1).replace(".0",""); }
+function label(k){return subjects.find(x=>x.key===k)?.name||k.replace(/\b\w/g,c=>c.toUpperCase())}
+function ravg(r){return avg(subjectKeys([r]).map(k=>r[k])}
+function groups(data=rows){const m=new Map;data.forEach(r=>{const k=key(r);if(!m.has(k))m.set(k,[]);m.get(k).push(r)});return m}
+function trend(g){return [...g].sort((a,b)=>String(a.semester).localeCompare(String(b.semester)))}
+function delta(g){const t=trend(g);return t.length<2?0:ravg(t.at(-1))-ravg(t.at(-2))}
+function status(g){const t=trend(g),d=delta(g);if(t.length>=3&&ravg(t.at(-2))<ravg(t.at(-3))-2&&ravg(t.at(-1))<ravg(t.at(-2))-2)return["🔴","Perhatian"];if(d>=3)return["🟢","Meningkat"];if(d<=-3)return["🟡","Dipantau"];return["🔵","Stabil"]}
+function chart(name,id,cfg){if(charts[name])charts[name].destroy();charts[name]=new Chart($(id),cfg)}
+function filtered(){let d=[...rows],s=$("semesterFilter").value,c=$("classFilter").value;if(s&&s!=="ALL")d=d.filter(r=>r.semester===s);if(c&&c!=="ALL")d=d.filter(r=>r.kelas===c);return d}
 
+function initSubjects(){
+  subjectKeys(rows).forEach(k=>{if(!subjects.some(x=>x.key===k))subjects.push({key:k,name:k.replace(/\b\w/g,c=>c.toUpperCase()),short:k,active:true})});
+  localStorage.setItem("pakkom_repo_subjects",JSON.stringify(subjects));
+}
 function updateFilters(){
-  const oldS=$("semesterFilter").value||"ALL", oldC=$("classFilter").value||"ALL";
-  $("semesterFilter").innerHTML=`<option value="ALL">Semua Semester</option>`+unique(rows.map(r=>r.semester)).sort().map(x=>`<option>${x}</option>`).join("");
-  $("classFilter").innerHTML=`<option value="ALL">Semua Kelas</option>`+unique(rows.map(r=>r.kelas)).sort().map(x=>`<option>${x}</option>`).join("");
-  if([...$("semesterFilter").options].some(o=>o.value===oldS)) $("semesterFilter").value=oldS;
-  if([...$("classFilter").options].some(o=>o.value===oldC)) $("classFilter").value=oldC;
+  const os=$("semesterFilter").value||"ALL",oc=$("classFilter").value||"ALL";
+  $("semesterFilter").innerHTML='<option value="ALL">Semua Semester</option>'+uniq(rows.map(r=>r.semester)).sort().map(x=>`<option>${x}</option>`).join("");
+  $("classFilter").innerHTML='<option value="ALL">Semua Kelas</option>'+uniq(rows.map(r=>r.kelas)).sort().map(x=>`<option>${x}</option>`).join("");
+  if([...$("semesterFilter").options].some(x=>x.value===os))$("semesterFilter").value=os;if([...$("classFilter").options].some(x=>x.value===oc))$("classFilter").value=oc;
+  $("semesterFilter").onchange=renderDashboard;$("classFilter").onchange=renderDashboard;
 }
-function semesterStudentAverages(){
-  const sems=unique(rows.map(r=>r.semester)).sort();
-  const map=new Map();
-  sems.forEach(s=>{
-    const rs=rows.filter(r=>r.semester===s);
-    map.set(s, avg(rs.map(rowAvg)));
-  });
-  return map;
-}
-function studentTrend(group){
-  return [...group].sort((a,b)=>String(a.semester).localeCompare(String(b.semester)));
-}
-function latestDelta(group){
-  const t=studentTrend(group);
-  if(t.length<2) return 0;
-  return rowAvg(t.at(-1))-rowAvg(t.at(-2));
-}
+function renderAll(){initSubjects();updateFilters();renderDashboard();renderStudents();renderSubjects();renderSettings();renderTable()}
 function renderDashboard(){
-  const d=filteredRows(), groups=groupedStudents(d);
-  $("statStudents").textContent=groups.size;
-  $("statAverage").textContent=fmt(avg(d.map(rowAvg)));
-  let up=0,down=0;
-  groupedStudents(rows).forEach(g=>{const x=latestDelta(g); if(x>=3)up++; if(x<=-3)down++;});
-  $("statUp").textContent=up; $("statDown").textContent=down;
-
-  const sm=semesterStudentAverages();
-  createChart("avg","avgChart",{type:"line",data:{labels:[...sm.keys()],datasets:[{label:"Rata-rata",data:[...sm.values()],tension:.3}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{suggestedMin:0,suggestedMax:100}}}});
-
-  const subs=subjectKeys(d), latestSem=$("semesterFilter").value==="ALL" ? unique(rows.map(r=>r.semester)).sort().at(-1) : $("semesterFilter").value;
-  const dd=latestSem? d.filter(r=>r.semester===latestSem):d;
-  createChart("sub","subjectChart",{type:"bar",data:{labels:subs,datasets:[{label:"Rata-rata",data:subs.map(s=>avg(dd.map(r=>r[s])))}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,suggestedMax:100}}}});
-
-  const att=[];
-  groupedStudents(rows).forEach(g=>{
-    const delta=latestDelta(g), t=studentTrend(g), last=t.at(-1);
-    if(delta<=-3) att.push({name:last.nama,kelas:last.kelas,delta});
-  });
-  att.sort((a,b)=>a.delta-b.delta);
-  $("attentionList").innerHTML=att.length?att.slice(0,8).map(x=>`<div class="attention-item"><div><b>${x.name}</b><small>Kelas ${x.kelas}</small></div><div class="delta down">${fmt(x.delta)} poin</div></div>`).join(""):`<div class="empty-state">Belum ada siswa yang terdeteksi mengalami penurunan signifikan.</div>`;
+  const d=filtered(),g=groups(rows),gf=groups(d);
+  $("totalStudents").innerText=gf.size;$("averageScore").innerText=fmt(avg(d.map(ravg)));
+  let up=0,w=0,a=0;g.forEach(x=>{let s=status(x)[1];if(s==="Meningkat")up++;if(s==="Dipantau")w++;if(s==="Perhatian")a++});let n=g.size||1;
+  $("upStudents").innerText=Math.round(up/n*100)+"%";$("upCount").innerText=up+" siswa";
+  $("watchStudents").innerText=Math.round(w/n*100)+"%";$("watchCount").innerText=w+" siswa";
+  $("alertStudents").innerText=Math.round(a/n*100)+"%";$("alertCount").innerText=a+" siswa";
+  const sems=uniq(rows.map(r=>r.semester)).sort();
+  chart("trend","trendChart",{type:"line",data:{labels:sems,datasets:[{label:"Rata-rata",data:sems.map(s=>avg(rows.filter(r=>r.semester===s).map(ravg))),tension:.3,fill:true}]},options:{plugins:{legend:{display:false}},scales:{y:{suggestedMin:0,suggestedMax:100}}}});
+  const ss=subjectKeys(rows),latest=sems.at(-1),prev=sems.at(-2);
+  const ch=ss.map(s=>({s,d:prev?avg(rows.filter(r=>r.semester===latest).map(r=>r[s]))-avg(rows.filter(r=>r.semester===prev).map(r=>r[s])):0}));
+  $("bestSubjects").innerHTML=[...ch].sort((a,b)=>b.d-a.d).slice(0,5).map(x=>`<div class="metric"><div><b>${label(x.s)}</b></div><div class="${x.d>=0?"up":"down"}">${x.d>=0?"+":""}${fmt(x.d)}</div></div>`).join("");
+  $("weakSubjects").innerHTML=[...ch].sort((a,b)=>a.d-b.d).slice(0,5).map(x=>`<div class="metric"><div><b>${label(x.s)}</b></div><div class="${x.d>=0?"up":"down"}">${x.d>=0?"+":""}${fmt(x.d)}</div></div>`).join("");
+  let growth=[];g.forEach((x,k)=>{let t=trend(x);if(t.length>1)growth.push({k,n:t.at(-1).nama,c:t.at(-1).kelas,v:ravg(t.at(-1))-ravg(t[0])})});growth.sort((a,b)=>b.v-a.v);
+  $("improvedStudents").innerHTML=growth.slice(0,5).map((x,i)=>`<div class="rank-row"><div><b>${i+1}. ${x.n}</b><small>Kelas ${x.c}</small></div><div class="${x.v>=0?"up":"down"}">${x.v>=0?"+":""}${fmt(x.v)}</div></div>`).join("");
+  renderPulse();
 }
-function renderStudentList(){
-  const q=$("studentSearch").value.toLowerCase();
-  const groups=groupedStudents(rows);
-  const items=[...groups.entries()].map(([key,g])=>({key,g,last:studentTrend(g).at(-1)}))
-    .filter(x=>`${x.last.nama} ${x.last.nis}`.toLowerCase().includes(q))
-    .sort((a,b)=>a.last.nama.localeCompare(b.last.nama));
-  $("studentList").innerHTML=items.length?items.map(x=>`<div class="student-item ${x.key===selectedStudentKey?"active":""}" data-key="${encodeURIComponent(x.key)}"><b>${x.last.nama}</b><small>${x.last.nis||"-"} · Kelas ${x.last.kelas||"-"}</small></div>`).join(""):`<div class="empty-state">Data siswa belum ada.</div>`;
-  document.querySelectorAll(".student-item").forEach(el=>el.onclick=()=>{selectedStudentKey=decodeURIComponent(el.dataset.key);renderStudentList();renderStudentDetail();});
+function renderPulse(){
+  let arr=[];groups(filtered()).forEach((g,k)=>{let t=trend(g),l=t.at(-1),s=status(g);arr.push({k,l,s,d:delta(g),a:ravg(l)})});arr.sort((a,b)=>a.l.nama.localeCompare(b.l.nama));
+  $("pulseGrid").innerHTML=arr.map(x=>`<div class="pulse-card" data-key="${encodeURIComponent(x.k)}"><h4>${x.s[0]} ${x.l.nama}</h4><small>${x.l.kelas||"-"} · ${x.l.nis||"-"}</small><b>${fmt(x.a)}</b><span class="${x.d>=0?"up":"down"}">${x.d>=0?"+":""}${fmt(x.d)}</span></div>`).join("")||'<div class="empty">Upload leger untuk memulai.</div>';
+  document.querySelectorAll(".pulse-card").forEach(el=>el.onclick=()=>{selected=decodeURIComponent(el.dataset.key);showPage("students");renderStudents();renderStudentProfile()});
 }
-function renderStudentDetail(){
-  if(!selectedStudentKey){$("studentEmpty").classList.remove("hidden");$("studentDetail").classList.add("hidden");return;}
-  const g=groupedStudents(rows).get(selectedStudentKey); if(!g)return;
-  const t=studentTrend(g), last=t.at(-1), subs=subjectKeys(g);
-  $("studentEmpty").classList.add("hidden");$("studentDetail").classList.remove("hidden");
-  $("studentName").textContent=last.nama; $("studentMeta").textContent=`NIS ${last.nis||"-"} · Kelas ${last.kelas||"-"} · ${t.length} semester`;
-  $("studentLatestAvg").textContent=fmt(rowAvg(last));
-  $("studentSubjectSelect").innerHTML=`<option value="AVG">Rata-rata Semua Mapel</option>`+subs.map(s=>`<option value="${s}">${s}</option>`).join("");
-  renderStudentChart();
-  $("studentSubjectSelect").onchange=renderStudentChart;
+$("studentSearch").oninput=renderStudents;
+function renderStudents(){
+  const q=($("studentSearch").value||"").toLowerCase(),arr=[];groups(rows).forEach((g,k)=>{let l=trend(g).at(-1);if((l.nama+" "+l.nis).toLowerCase().includes(q))arr.push({k,l})});arr.sort((a,b)=>a.l.nama.localeCompare(b.l.nama));
+  $("studentList").innerHTML=arr.map(x=>`<div class="student-item" data-key="${encodeURIComponent(x.k)}"><b>${x.l.nama}</b><small>${x.l.nis||"-"} · ${x.l.kelas||"-"}</small></div>`).join("");
+  document.querySelectorAll(".student-item").forEach(el=>el.onclick=()=>{selected=decodeURIComponent(el.dataset.key);renderStudentProfile()});
 }
-function renderStudentChart(){
-  const g=groupedStudents(rows).get(selectedStudentKey); if(!g)return;
-  const t=studentTrend(g), sub=$("studentSubjectSelect").value;
-  const vals=t.map(r=>sub==="AVG"?rowAvg(r):Number(r[sub]||0));
-  createChart("student","studentChart",{type:"line",data:{labels:t.map(r=>r.semester),datasets:[{label:sub==="AVG"?"Rata-rata":sub,data:vals,tension:.3}]},options:{responsive:true,scales:{y:{suggestedMin:0,suggestedMax:100}}}});
-  const delta=vals.length>1?vals.at(-1)-vals.at(-2):0;
-  const text=vals.length<2?"Belum cukup semester untuk membaca tren.":delta>=3?`Perkembangan positif: naik ${fmt(delta)} poin dibanding semester sebelumnya.`:delta<=-3?`Perlu dipantau: turun ${fmt(Math.abs(delta))} poin dibanding semester sebelumnya.`:`Nilai relatif stabil dibanding semester sebelumnya (${delta>=0?"+":""}${fmt(delta)} poin).`;
-  $("studentInsight").textContent=text;
+function renderStudentProfile(){
+  if(!selected)return;let g=groups(rows).get(selected),t=trend(g),l=t.at(-1),p=t.at(-2),growth=t.length>1?ravg(l)-ravg(t[0]):0,ss=subjectKeys(g);
+  let ranked=ss.map(s=>({s,v:Number(l[s])})).filter(x=>Number.isFinite(x.v)).sort((a,b)=>b.v-a.v),best=["",-1];ss.forEach(s=>t.forEach(r=>{let v=Number(r[s]);if(Number.isFinite(v)&&v>best[1])best=[s,v]}));
+  $("studentProfile").innerHTML=`<div class="profile"><div class="profile-left"><div class="avatar">${l.nama[0]}</div><div><h3>${l.nama}</h3><p>${l.kelas||"-"} • NIS ${l.nis||"-"}</p></div></div><div class="growth"><small>Growth Index</small><b>${growth>=0?"+":""}${fmt(growth)}</b></div></div><div class="mini-grid"><div><span>Rata-rata terakhir</span><b>${fmt(ravg(l))}</b></div><div><span>Sebelumnya</span><b>${p?fmt(ravg(p)):"-"}</b></div><div><span>Perubahan</span><b>${p?((ravg(l)-ravg(p)>=0?"+":"")+fmt(ravg(l)-ravg(p))):"-"}</b></div><div><span>Personal Best</span><b>${best[1]>=0?label(best[0])+" "+fmt(best[1]):"-"}</b></div></div>`;
+  $("journeyPanel").classList.remove("hidden");$("strengthGrid").classList.remove("hidden");
+  chart("student","studentChart",{type:"line",data:{labels:t.map(r=>r.semester),datasets:[{label:"Rata-rata",data:t.map(ravg),tension:.3,fill:true}]},options:{plugins:{legend:{display:false}},scales:{y:{suggestedMin:0,suggestedMax:100}}}});
+  $("strengths").innerHTML=ranked.slice(0,3).map(x=>`<div class="metric"><b>${label(x.s)}</b><b>${fmt(x.v)}</b></div>`).join("");
+  $("focus").innerHTML=ranked.slice(-3).reverse().map(x=>`<div class="metric"><b>${label(x.s)}</b><b>${fmt(x.v)}</b></div>`).join("");
 }
-function renderSubjectSelectors(){
-  const subs=subjectKeys(rows);
-  $("subjectSelect").innerHTML=subs.map(s=>`<option value="${s}">${s}</option>`).join("")||`<option>Belum ada mapel</option>`;
-  $("subjectSelect").onchange=renderSubjectTrend;
-}
-function renderSubjectTrend(){
-  const sub=$("subjectSelect").value, sems=unique(rows.map(r=>r.semester)).sort();
-  createChart("subjectTrend","subjectTrendChart",{type:"line",data:{labels:sems,datasets:[{label:sub,data:sems.map(s=>avg(rows.filter(r=>r.semester===s).map(r=>r[sub]))),tension:.3}]},options:{responsive:true,scales:{y:{suggestedMin:0,suggestedMax:100}}}});
-}
-function renderDataTable(){
-  const keys=["nis","nama","kelas","semester",...subjectKeys(rows)];
-  $("dataTable").querySelector("thead").innerHTML=`<tr>${keys.map(k=>`<th>${k}</th>`).join("")}</tr>`;
-  $("dataTable").querySelector("tbody").innerHTML=rows.map(r=>`<tr>${keys.map(k=>`<td>${r[k]??""}</td>`).join("")}</tr>`).join("");
-}
-function refreshAll(){
-  localStorage.setItem("pakkom_rows",JSON.stringify(rows));
-  updateFilters(); renderDashboard(); renderStudentList(); renderStudentDetail(); renderSubjectSelectors(); renderSubjectTrend(); renderDataTable();
-}
-function switchView(name){
-  document.querySelectorAll(".page-view").forEach(v=>v.classList.add("hidden"));
-  $(name+"View").classList.remove("hidden");
-  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.view===name));
-  const titles={dashboard:"Dashboard",upload:"Upload Leger",students:"Analisis Siswa",subject:"Analisis Mata Pelajaran",data:"Data Nilai"};
-  $("pageTitle").textContent=titles[name]||"Dashboard";
-  if(name==="dashboard") renderDashboard();
-}
-
-$("loginForm").addEventListener("submit",e=>{
-  e.preventDefault();
-  if($("username").value===DEFAULT_USER.username && $("password").value===DEFAULT_USER.password){
-    sessionStorage.setItem("pakkom_login","1"); showApp();
-  }else $("loginError").textContent="Username atau password salah.";
-});
-function showApp(){
-  $("loginView").classList.add("hidden");$("mainView").classList.remove("hidden");refreshAll();
-}
-$("logoutBtn").onclick=()=>{sessionStorage.removeItem("pakkom_login");location.reload();}
-document.querySelectorAll(".nav-btn").forEach(b=>b.onclick=()=>switchView(b.dataset.view));
-$("semesterFilter").onchange=renderDashboard;$("classFilter").onchange=renderDashboard;
-$("studentSearch").oninput=renderStudentList;
-
-$("excelFile").addEventListener("change", async e=>{
-  const file=e.target.files[0]; if(!file)return;
-  try{
-    const data=await file.arrayBuffer();
-    const wb=XLSX.read(data,{type:"array"});
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    const raw=XLSX.utils.sheet_to_json(ws,{defval:""});
-    const clean=raw.map(normalizeRow).filter(r=>r.nama && r.semester);
-    if(!clean.length) throw new Error("Kolom Nama dan Semester tidak ditemukan.");
-    const map=new Map(rows.map(r=>[`${studentKey(r)}|${r.semester}`,r]));
-    clean.forEach(r=>map.set(`${studentKey(r)}|${r.semester}`,r));
-    rows=[...map.values()];
-    $("uploadMessage").textContent=`Berhasil membaca ${clean.length} baris data dari ${file.name}.`;
-    refreshAll();
-  }catch(err){$("uploadMessage").textContent=`Gagal membaca file: ${err.message}`;}
-  e.target.value="";
-});
-$("clearDataBtn").onclick=()=>{ if(confirm("Hapus semua data nilai yang tersimpan di browser ini?")){rows=[];selectedStudentKey=null;refreshAll();$("uploadMessage").textContent="Semua data telah dihapus.";}}
-$("downloadTemplate").onclick=()=>{
-  const csv="NIS,Nama,Kelas,Semester,Matematika,IPA,Bahasa Indonesia,Bahasa Inggris,IPS\n1001,Ahmad,8A,2025/2026-1,82,84,86,80,83\n1002,Bella,8A,2025/2026-1,88,90,89,87,85\n";
-  const blob=new Blob([csv],{type:"text/csv"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="template-leger.csv";a.click();URL.revokeObjectURL(a.href);
-};
-$("exportDataBtn").onclick=()=>{
-  const blob=new Blob([JSON.stringify(rows,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="pakkom-data-nilai.json";a.click();URL.revokeObjectURL(a.href);
-};
-
-if(sessionStorage.getItem("pakkom_login")==="1") showApp();
+function renderSubjects(){let ss=subjectKeys(rows);$("subjectSelect").innerHTML=ss.map(s=>`<option value="${s}">${label(s)}</option>`).join("");$("subjectSelect").onchange=renderSubjectChart;renderSubjectChart()}
+function renderSubjectChart(){let s=$("subjectSelect").value;if(!s)return;let sems=uniq(rows.map(r=>r.semester)).sort();chart("subject","subjectChart",{type:"line",data:{labels:sems,datasets:[{label:label(s),data:sems.map(m=>avg(rows.filter(r=>r.semester===m).map(r=>r[s]))),tension:.3,fill:true}]},options:{scales:{y:{suggestedMin:0,suggestedMax:100}}}})}
+function renderSettings(){initSubjects();$("subjectSettings").innerHTML=subjects.map((x,i)=>`<div class="setting-row"><b>${i+1}</b><input data-i="${i}" value="${x.name}"><select data-i="${i}"><option value="true" ${x.active!==false?"selected":""}>Aktif</option><option value="false" ${x.active===false?"selected":""}>Nonaktif</option></select></div>`).join("");document.querySelectorAll("#subjectSettings input").forEach(el=>el.onchange=()=>{subjects[+el.dataset.i].name=el.value;saveSubjects()});document.querySelectorAll("#subjectSettings select").forEach(el=>el.onchange=()=>{subjects[+el.dataset.i].active=el.value==="true";saveSubjects()})}
+function saveSubjects(){localStorage.setItem("pakkom_repo_subjects",JSON.stringify(subjects));renderDashboard()}
+function norm(raw){let m={};Object.entries(raw).forEach(([k,v])=>m[String(k).trim().toLowerCase()]=v);let get=(...ks)=>{for(let k of ks)if(m[k]!==undefined&&m[k]!=="")return m[k];return""};let r={nis:String(get("nis","nisn","id")).trim(),nama:String(get("nama","nama siswa","siswa")).trim(),kelas:String(get("kelas","rombel","class")).trim(),semester:String(get("semester","smt","periode")).trim()};Object.entries(m).forEach(([k,v])=>{if(!["nis","nisn","id","nama","nama siswa","siswa","kelas","rombel","class","semester","smt","periode"].includes(k)){let n=Number(v);if(v!==""&&Number.isFinite(n))r[k]=n}});return r}
+$("excelFile").onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let b=await f.arrayBuffer(),w=XLSX.read(b,{type:"array"}),raw=XLSX.utils.sheet_to_json(w.Sheets[w.SheetNames[0]],{defval:""});pending=raw.map(norm);let valid=pending.filter(x=>x.nama&&x.semester),sub=subjectKeys(valid);$("preview").innerHTML=`<div class="metric"><span>File</span><b>${f.name}</b></div><div class="metric"><span>Siswa ditemukan</span><b>${new Set(valid.map(key)).size}</b></div><div class="metric"><span>Mata pelajaran</span><b>${sub.length}</b></div><div class="metric"><span>Data valid</span><b>${valid.length}</b></div><div class="metric"><span>Data bermasalah</span><b>${pending.length-valid.length}</b></div>`;$("mapping").innerHTML=Object.keys(raw[0]||{}).map(c=>`<div class="metric"><b>${c}</b><span>${guess(c)}</span></div>`).join("");$("saveImport").classList.remove("hidden")}catch(err){$("preview").innerText="Gagal membaca file: "+err.message}}
+function guess(c){let k=String(c).toLowerCase();if(["nis","nisn","id"].includes(k))return"NIS/NISN";if(["nama","nama siswa","siswa"].includes(k))return"Nama";if(["kelas","rombel","class"].includes(k))return"Kelas";if(["semester","smt","periode"].includes(k))return"Semester";return"Mata Pelajaran / Angka"}
+$("saveImport").onclick=()=>{let valid=pending.filter(x=>x.nama&&x.semester),m=new Map(rows.map(r=>[key(r)+"|"+r.semester,r]));valid.forEach(r=>m.set(key(r)+"|"+r.semester,r));rows=[...m.values()];localStorage.setItem("pakkom_repo_rows",JSON.stringify(rows));pending=[];$("preview").innerHTML="<b>Data berhasil disimpan.</b>";$("saveImport").classList.add("hidden");renderAll()}
+function renderTable(){let keys=["nis","nama","kelas","semester",...subjectKeys(rows)];$("dataTable").querySelector("thead").innerHTML="<tr>"+keys.map(k=>`<th>${label(k)}</th>`).join("")+"</tr>";$("dataTable").querySelector("tbody").innerHTML=rows.map(r=>"<tr>"+keys.map(k=>`<td>${r[k]??""}</td>`).join("")+"</tr>").join("")}
+function clearData(){if(confirm("Hapus semua data?")){rows=[];localStorage.removeItem("pakkom_repo_rows");renderAll()}}

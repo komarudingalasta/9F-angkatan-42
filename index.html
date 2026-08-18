@@ -1,176 +1,120 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PakKom Student Analytics</title>
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-  <link rel="stylesheet" href="style.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PakKom Student Analytics</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="app">
-    <section id="loginView" class="login-shell">
-      <div class="login-card">
-        <div class="brand-mark">PK</div>
-        <h1>PakKom Student Analytics</h1>
-        <p>Analisis perkembangan nilai siswa dari semester ke semester.</p>
-        <form id="loginForm">
-          <label>Username
-            <input id="username" autocomplete="username" placeholder="admin" required />
-          </label>
-          <label>Password
-            <input id="password" type="password" autocomplete="current-password" placeholder="123456" required />
-          </label>
-          <button type="submit" class="btn primary">Masuk</button>
-          <small>Demo login: <b>admin</b> / <b>123456</b></small>
-          <p id="loginError" class="error"></p>
-        </form>
+<div id="login" class="login">
+  <div class="login-card">
+    <div class="logo">PK</div>
+    <h1>PakKom Student Analytics</h1>
+    <p>Dashboard perkembangan akademik siswa</p>
+    <input id="user" placeholder="Username" value="admin">
+    <input id="pass" type="password" placeholder="Password" value="123456">
+    <button onclick="login()">Masuk</button>
+    <small>Demo: admin / 123456</small>
+    <div id="loginError"></div>
+  </div>
+</div>
+
+<div id="app" class="app hidden">
+  <aside>
+    <div class="brand"><div class="brand-logo">PK</div><div><b>PakKom</b><span>Student Analytics</span></div></div>
+    <nav>
+      <button class="nav active" data-page="dashboard">Dashboard</button>
+      <label>DATA AKADEMIK</label>
+      <button class="nav" data-page="upload">Upload Leger</button>
+      <button class="nav" data-page="data">Data Nilai</button>
+      <label>ANALISIS</label>
+      <button class="nav" data-page="students">Perkembangan Siswa</button>
+      <button class="nav" data-page="subjects">Analisis Mapel</button>
+      <label>PENGATURAN</label>
+      <button class="nav" data-page="settings">Mata Pelajaran</button>
+    </nav>
+    <button class="logout" onclick="logout()">Keluar</button>
+  </aside>
+
+  <main>
+    <header>
+      <div><small>PAKKOM ACADEMIC MONITOR</small><h2 id="title">Dashboard</h2><p id="subtitle">Ringkasan perkembangan akademik</p></div>
+      <div class="filters"><select id="semesterFilter"></select><select id="classFilter"></select></div>
+    </header>
+
+    <section id="dashboardPage" class="page">
+      <div class="kpis">
+        <div class="kpi"><span>Total Siswa</span><b id="totalStudents">0</b><small>Maks. 60 siswa</small></div>
+        <div class="kpi"><span>Rata-rata Kelas</span><b id="averageScore">0</b><small>Data terpilih</small></div>
+        <div class="kpi"><span>Siswa Meningkat</span><b id="upStudents">0%</b><small id="upCount">0 siswa</small></div>
+        <div class="kpi"><span>Perlu Dipantau</span><b id="watchStudents">0%</b><small id="watchCount">0 siswa</small></div>
+        <div class="kpi"><span>Perlu Perhatian</span><b id="alertStudents">0%</b><small id="alertCount">0 siswa</small></div>
+      </div>
+
+      <div class="grid dashboard-grid">
+        <article class="panel wide"><h3>Perkembangan Rata-rata Kelas</h3><canvas id="trendChart"></canvas></article>
+        <article class="panel"><h3>Mapel Peningkatan Terbaik</h3><div id="bestSubjects"></div></article>
+        <article class="panel"><h3>Mapel Perlu Perhatian</h3><div id="weakSubjects"></div></article>
+        <article class="panel"><h3>Most Improved Student</h3><div id="improvedStudents"></div></article>
+      </div>
+
+      <article class="panel">
+        <div class="panel-head"><div><h3>60 Student Pulse</h3><p>Ringkasan kondisi seluruh siswa</p></div><div class="legend">🟢 Meningkat &nbsp; 🔵 Stabil &nbsp; 🟡 Dipantau &nbsp; 🔴 Perhatian</div></div>
+        <div id="pulseGrid" class="pulse-grid"></div>
+      </article>
+    </section>
+
+    <section id="uploadPage" class="page hidden">
+      <div class="grid upload-grid">
+        <article class="panel">
+          <h3>Upload Leger Excel</h3>
+          <p>Minimal kolom: NIS, Nama, Kelas, Semester.</p>
+          <label class="dropzone">Pilih File Excel<input id="excelFile" type="file" accept=".xlsx,.xls"></label>
+        </article>
+        <article class="panel">
+          <h3>Preview Import</h3>
+          <div id="preview">Belum ada file dipilih.</div>
+          <div class="actions"><button id="saveImport" class="primary hidden">Simpan Data Valid</button></div>
+        </article>
+      </div>
+      <article class="panel"><h3>Mapping Kolom</h3><div id="mapping">Pilih file untuk melihat mapping.</div></article>
+    </section>
+
+    <section id="studentsPage" class="page hidden">
+      <div class="students-layout">
+        <article class="panel">
+          <h3>Daftar Siswa</h3>
+          <input id="studentSearch" placeholder="Cari nama / NIS">
+          <div id="studentList"></div>
+        </article>
+        <div>
+          <article class="panel"><div id="studentProfile" class="empty">Pilih siswa untuk melihat perkembangan.</div></article>
+          <article id="journeyPanel" class="panel hidden"><h3>Student Journey</h3><canvas id="studentChart"></canvas></article>
+          <div id="strengthGrid" class="grid two hidden">
+            <article class="panel"><h3>Kekuatan</h3><div id="strengths"></div></article>
+            <article class="panel"><h3>Fokus Pengembangan</h3><div id="focus"></div></article>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section id="mainView" class="app-shell hidden">
-      <aside class="sidebar">
-        <div class="brand-row">
-          <div class="brand-mark small">PK</div>
-          <div>
-            <b>PakKom</b>
-            <span>Student Analytics</span>
-          </div>
-        </div>
-        <nav>
-          <button class="nav-btn active" data-view="dashboard">Dashboard</button>
-          <button class="nav-btn" data-view="upload">Upload Leger</button>
-          <button class="nav-btn" data-view="students">Analisis Siswa</button>
-          <button class="nav-btn" data-view="subject">Analisis Mapel</button>
-          <button class="nav-btn" data-view="data">Data Nilai</button>
-        </nav>
-        <button id="logoutBtn" class="btn ghost">Keluar</button>
-      </aside>
-
-      <main class="content">
-        <header class="topbar">
-          <div>
-            <p class="eyebrow">SISTEM ANALISIS AKADEMIK</p>
-            <h2 id="pageTitle">Dashboard</h2>
-          </div>
-          <div class="top-actions">
-            <select id="semesterFilter"></select>
-            <select id="classFilter"></select>
-          </div>
-        </header>
-
-        <section id="dashboardView" class="page-view">
-          <div class="cards">
-            <article class="stat-card"><span>Jumlah Siswa</span><strong id="statStudents">0</strong></article>
-            <article class="stat-card"><span>Rata-rata</span><strong id="statAverage">0</strong></article>
-            <article class="stat-card"><span>Meningkat</span><strong id="statUp">0</strong></article>
-            <article class="stat-card"><span>Perlu Dipantau</span><strong id="statDown">0</strong></article>
-          </div>
-
-          <div class="grid two">
-            <article class="panel">
-              <div class="panel-head">
-                <div><h3>Perkembangan Rata-rata</h3><p>Tren nilai berdasarkan semester</p></div>
-              </div>
-              <canvas id="avgChart"></canvas>
-            </article>
-            <article class="panel">
-              <div class="panel-head">
-                <div><h3>Rata-rata per Mapel</h3><p>Semester terpilih</p></div>
-              </div>
-              <canvas id="subjectChart"></canvas>
-            </article>
-          </div>
-
-          <article class="panel">
-            <div class="panel-head">
-              <div><h3>Siswa Perlu Perhatian</h3><p>Terindikasi mengalami penurunan dibanding semester sebelumnya</p></div>
-            </div>
-            <div id="attentionList" class="attention-list"></div>
-          </article>
-        </section>
-
-        <section id="uploadView" class="page-view hidden">
-          <article class="panel upload-panel">
-            <h3>Upload Leger Excel</h3>
-            <p>Format yang disarankan: <b>NIS, Nama, Kelas, Semester</b>, lalu kolom mapel seperti Matematika, IPA, Bahasa Indonesia, dan seterusnya.</p>
-            <label class="dropzone" for="excelFile">
-              <strong>Pilih file Excel</strong>
-              <span>.xlsx atau .xls</span>
-              <input id="excelFile" type="file" accept=".xlsx,.xls" hidden />
-            </label>
-            <div class="upload-actions">
-              <button id="downloadTemplate" class="btn secondary">Download Template CSV</button>
-              <button id="clearDataBtn" class="btn danger">Hapus Semua Data</button>
-            </div>
-            <div id="uploadMessage" class="notice"></div>
-          </article>
-
-          <article class="panel">
-            <h3>Format Contoh</h3>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>NIS</th><th>Nama</th><th>Kelas</th><th>Semester</th><th>Matematika</th><th>IPA</th><th>Bahasa Indonesia</th></tr></thead>
-                <tbody><tr><td>1001</td><td>Ahmad</td><td>8A</td><td>2025/2026-1</td><td>82</td><td>84</td><td>86</td></tr></tbody>
-              </table>
-            </div>
-          </article>
-        </section>
-
-        <section id="studentsView" class="page-view hidden">
-          <div class="grid student-layout">
-            <article class="panel student-list-panel">
-              <div class="panel-head"><h3>Daftar Siswa</h3></div>
-              <input id="studentSearch" class="search" placeholder="Cari nama / NIS..." />
-              <div id="studentList" class="student-list"></div>
-            </article>
-            <article class="panel">
-              <div id="studentEmpty" class="empty-state">Pilih siswa untuk melihat perkembangan nilainya.</div>
-              <div id="studentDetail" class="hidden">
-                <div class="profile-head">
-                  <div>
-                    <h3 id="studentName"></h3>
-                    <p id="studentMeta"></p>
-                  </div>
-                  <div class="score-pill"><span>Rata-rata terbaru</span><b id="studentLatestAvg">0</b></div>
-                </div>
-                <select id="studentSubjectSelect"></select>
-                <canvas id="studentChart"></canvas>
-                <div id="studentInsight" class="insight"></div>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section id="subjectView" class="page-view hidden">
-          <article class="panel">
-            <div class="panel-head responsive">
-              <div><h3>Analisis Mata Pelajaran</h3><p>Bandingkan rata-rata mapel antarsemester</p></div>
-              <select id="subjectSelect"></select>
-            </div>
-            <canvas id="subjectTrendChart"></canvas>
-          </article>
-        </section>
-
-        <section id="dataView" class="page-view hidden">
-          <article class="panel">
-            <div class="panel-head responsive">
-              <div><h3>Data Nilai Tersimpan</h3><p>Data tersimpan di browser perangkat ini.</p></div>
-              <button id="exportDataBtn" class="btn secondary">Export JSON</button>
-            </div>
-            <div class="table-wrap">
-              <table id="dataTable">
-                <thead></thead><tbody></tbody>
-              </table>
-            </div>
-          </article>
-        </section>
-      </main>
+    <section id="subjectsPage" class="page hidden">
+      <article class="panel"><div class="panel-head"><div><h3>Analisis Mata Pelajaran</h3><p>Tren nilai antarsemester</p></div><select id="subjectSelect"></select></div><canvas id="subjectChart"></canvas></article>
     </section>
-  </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="app.js"></script>
+    <section id="settingsPage" class="page hidden">
+      <article class="panel"><div class="panel-head"><div><h3>Pengaturan Mata Pelajaran</h3><p>Nama mapel dapat diedit sesuai kebutuhan.</p></div></div><div id="subjectSettings"></div></article>
+    </section>
+
+    <section id="dataPage" class="page hidden">
+      <article class="panel"><div class="panel-head"><h3>Data Nilai</h3><button class="danger" onclick="clearData()">Hapus Semua Data</button></div><div class="table-wrap"><table id="dataTable"><thead></thead><tbody></tbody></table></div></article>
+    </section>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
