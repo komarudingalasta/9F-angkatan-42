@@ -187,3 +187,9 @@ V6 otomatis membangun ulang:
 - rata-rata rapor kelas,
 - ranking siswa,
 setelah admin menyimpan leger ke Firebase.
+
+
+## V7
+Username siswa = NIS. Password default otomatis = 123456.
+Admin dapat membuat seluruh akun sekaligus melalui Pengaturan > Akses Login Siswa > Buat Akses Semua Siswa.
+Akun yang sudah ada tidak dibuat ganda.

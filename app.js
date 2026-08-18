@@ -452,33 +452,73 @@ async function renderStudentAccess(){
   }
 }
 
-$("createAccessBtn")?.addEventListener("click",async()=>{
-  const nis=$("accessStudentSelect").value,pin=$("accessPin").value.trim();
-  if(!nis)return setMessage("accessMessage","Pilih siswa terlebih dahulu.",true);
-  if(pin.length<6)return setMessage("accessMessage","PIN minimal 6 karakter.",true);
-  const g=grouped(records).get(nis) || [...grouped(records).values()].find(x=>trend(x).at(-1)?.nis===nis);
-  const last=g?trend(g).at(-1):records.find(r=>r.nis===nis);
-  if(!last)return setMessage("accessMessage","Data siswa tidak ditemukan.",true);
+
+const DEFAULT_STUDENT_PASSWORD="123456";
+
+function latestStudentRows(){
+  const byNis=new Map();
+  records.forEach(r=>{
+    if(!r.nis)return;
+    const k=String(r.nis);
+    const prev=byNis.get(k);
+    if(!prev||semesterRank(r.semester)>=semesterRank(prev.semester))byNis.set(k,r);
+  });
+  return [...byNis.values()].sort((a,b)=>(a.nama||"").localeCompare(b.nama||""));
+}
+
+async function createOneStudentAccess(student){
+  const nis=String(student.nis||"").trim();
+  if(!nis)throw new Error("NIS kosong.");
   const internalEmail=studentInternalEmail(nis);
-  setMessage("accessMessage","Membuat akun siswa…");
-  let secondaryApp,secondaryAuth;
+  let secondaryApp=getApps().find(a=>a.name==="student-account-creator");
+  if(!secondaryApp)secondaryApp=initializeApp(firebaseConfig,"student-account-creator");
+  const secondaryAuth=getAuth(secondaryApp);
   try{
-    secondaryApp=getApps().find(a=>a.name==="student-account-creator")||initializeApp(firebaseConfig,"student-account-creator");
-    secondaryAuth=getAuth(secondaryApp);
-    const cred=await createUserWithEmailAndPassword(secondaryAuth,internalEmail,pin);
+    const cred=await createUserWithEmailAndPassword(secondaryAuth,internalEmail,DEFAULT_STUDENT_PASSWORD);
     await setDoc(doc(db,"users",cred.user.uid),{
-      role:"student",nis,name:last.nama,email:internalEmail,kelas:last.kelas,updatedAt:serverTimestamp()
+      role:"student",nis,name:student.nama||"",email:internalEmail,
+      kelas:student.kelas||"",defaultPassword:true,updatedAt:serverTimestamp()
     },{merge:true});
     await signOut(secondaryAuth);
-    $("accessPin").value="";
-    setMessage("accessMessage",`Akses berhasil dibuat. Username siswa: ${nis}`);
-    await renderStudentAccess();
+    return "created";
   }catch(e){
-    if(e?.code==="auth/email-already-in-use"){
-      setMessage("accessMessage","Akun NIS ini sudah ada. Untuk reset PIN, hapus akun siswa tersebut di Firebase Authentication lalu buat kembali dari halaman ini.",true);
-    }else{
-      console.error(e);setMessage("accessMessage","Gagal membuat akun: "+(e.message||e),true);
-    }
-    try{if(secondaryAuth)await signOut(secondaryAuth)}catch(_){}
+    try{await signOut(secondaryAuth)}catch(_){}
+    if(e?.code==="auth/email-already-in-use")return "exists";
+    throw e;
   }
+}
+
+$("createAccessBtn")?.addEventListener("click",async()=>{
+  const nis=$("accessStudentSelect").value;
+  if(!nis)return setMessage("accessMessage","Pilih siswa terlebih dahulu.",true);
+  const s=latestStudentRows().find(x=>String(x.nis)===String(nis));
+  if(!s)return setMessage("accessMessage","Siswa tidak ditemukan.",true);
+  try{
+    setMessage("accessMessage","Membuat akses…");
+    const status=await createOneStudentAccess(s);
+    setMessage("accessMessage",status==="created"
+      ?`Akses dibuat. NIS: ${nis} · Password: ${DEFAULT_STUDENT_PASSWORD}`
+      :`Akun NIS ${nis} sudah ada dan tidak dibuat ganda.`);
+    await renderStudentAccess();
+  }catch(e){setMessage("accessMessage","Gagal: "+e.message,true)}
+});
+
+$("createAllAccessBtn")?.addEventListener("click",async()=>{
+  const students=latestStudentRows();
+  if(!students.length)return setMessage("accessMessage","Upload leger terlebih dahulu.",true);
+  if(!confirm(`Buat akses ${students.length} siswa?\nUsername: NIS\nPassword: ${DEFAULT_STUDENT_PASSWORD}`))return;
+  let created=0,exists=0,failed=0;
+  $("createAllAccessBtn").disabled=true;
+  try{
+    for(let i=0;i<students.length;i++){
+      const s=students[i];
+      setMessage("accessMessage",`Proses ${i+1}/${students.length}: ${s.nis} — ${s.nama}`);
+      try{
+        const status=await createOneStudentAccess(s);
+        status==="created"?created++:exists++;
+      }catch(e){console.error(e);failed++}
+    }
+    setMessage("accessMessage",`Selesai: ${created} akun dibuat, ${exists} sudah ada${failed?`, ${failed} gagal`:""}. Password akun baru: ${DEFAULT_STUDENT_PASSWORD}`,failed>0);
+    await renderStudentAccess();
+  }finally{$("createAllAccessBtn").disabled=false}
 });

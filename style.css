@@ -34,3 +34,5 @@
   .app{grid-template-columns:72px 1fr}.sidebar{padding:10px 7px}.brand>div:last-child,.nav span,.nav-label,.account-card>div:last-child,.sync-card>div,.logout-btn span{display:none}.brand{justify-content:center;padding-bottom:10px}.nav{justify-content:center;font-size:18px;padding:10px}.sidebar-bottom{display:grid;gap:5px}.account-card,.sync-card{justify-content:center;padding:6px}.logout-btn{text-align:center;font-size:18px}.main{padding:10px 9px}.student-access-form{grid-template-columns:1fr}.student-summary{grid-template-columns:1fr 1fr}
 }
 @media(max-width:460px){.student-summary{grid-template-columns:1fr}}
+
+.access-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}.default-password-note{font-size:9px;color:var(--muted);background:#f7f9fc;border:1px solid var(--line);padding:8px 10px;border-radius:9px}.default-password-note b{color:var(--blue);font-size:11px}.student-access-form{grid-template-columns:1.4fr auto}@media(max-width:680px){.access-actions{display:grid}.access-actions .btn{width:100%}.student-access-form{grid-template-columns:1fr}}

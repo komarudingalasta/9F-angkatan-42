@@ -221,12 +221,15 @@
 
         <article id="studentAccessPanel" class="panel">
           <div class="panel-head responsive">
-            <div><h3>Akses Login Siswa</h3><p>Siswa masuk menggunakan NIS dan PIN. Akun terhubung ke data NIS yang sama.</p></div>
+            <div><h3>Akses Login Siswa</h3><p>Siswa masuk menggunakan NIS. Password awal otomatis 123456.</p></div>
+          </div>
+          <div class="access-actions">
+            <button id="createAllAccessBtn" class="btn primary">Buat Akses Semua Siswa</button>
+            <span class="default-password-note">Password default: <b>123456</b></span>
           </div>
           <div class="student-access-form">
             <select id="accessStudentSelect"></select>
-            <input id="accessPin" type="password" inputmode="numeric" placeholder="PIN siswa, minimal 6 karakter">
-            <button id="createAccessBtn" class="btn primary">Buat / Reset Akses</button>
+            <button id="createAccessBtn" class="btn secondary">Buat Akses Siswa Terpilih</button>
           </div>
           <div id="accessMessage" class="message"></div>
           <div class="table-wrap">
