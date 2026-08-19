@@ -4,45 +4,69 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#174b9e">
-  <title>PakKom Student Analytics</title>
+  <title>PakKom Progress</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <section id="setupScreen" class="center-screen hidden auth-screen">
     <div class="setup-card">
       <div class="logo lg">PK</div>
-      <h1>Firebase belum dikonfigurasi</h1>
-      <p>Isi file <code>firebase-config.js</code> dengan konfigurasi Web App dari Firebase Console, lalu muat ulang halaman.</p>
-      <div class="setup-steps">
-        <b>Yang perlu diaktifkan:</b>
-        <span>1. Authentication → Email/Password</span>
-        <span>2. Firestore Database</span>
-        <span>3. Deploy <code>firestore.rules</code></span>
-      </div>
-      <p class="muted">Petunjuk lengkap tersedia di README.md.</p>
+      <h1>Aplikasi belum siap digunakan</h1>
+      <p>Konfigurasi layanan belum lengkap. Silakan hubungi administrator.</p>
     </div>
   </section>
 
-  <section id="loginScreen" class="center-screen hidden auth-screen">
-    <div class="login-card">
-      <div class="logo lg">PK</div>
-      <h1>PakKom Student Analytics</h1>
-      <p id="loginDescription">Masukkan email admin atau NIS siswa. Sistem akan mengenali akses secara otomatis.</p>
-<form id="loginForm">
-        <label id="loginIdentifierLabel">Email Admin / NIS Siswa
-          <input id="email" type="text" autocomplete="username" required placeholder="Email admin atau NIS siswa">
-        </label>
-        <label>Password
-          <div class="password-wrap">
-            <input id="password" type="password" autocomplete="current-password" required placeholder="Masukkan password">
-            <button type="button" id="togglePassword" class="icon-btn">👁</button>
+  <section id="loginScreen" class="auth-screen hidden">
+    <div class="login-shell">
+      <div class="login-hero">
+        <div class="hero-brand">
+          <div class="logo lg">PK</div>
+          <div>
+            <h1>PakKom Progress</h1>
+            <p>Nilai & Perkembangan Akademik</p>
           </div>
-        </label>
-        <button class="btn primary full" type="submit">Masuk</button>
-        <button class="btn link full" type="button" id="resetPassword">Lupa password?</button>
-        <div id="loginHint" class="login-hint">Admin: email + password Firebase · Siswa: NIS + password default 123456.</div>
-        <div id="loginMessage" class="message"></div>
-      </form>
+        </div>
+        <div class="hero-copy">
+          <span class="hero-badge">AKADEMIK SISWA</span>
+          <h2>Pahami perkembangan nilai dengan lebih mudah.</h2>
+          <p>Pantau pencapaian, tren nilai, perbandingan kelas, dan posisi akademik dari semester ke semester.</p>
+        </div>
+        <div class="hero-points">
+          <div><span>↗</span><b>Perkembangan</b><small>Lihat perubahan nilai antarsemester</small></div>
+          <div><span>◎</span><b>Analisis</b><small>Kenali kekuatan dan area peningkatan</small></div>
+          <div><span>★</span><b>Posisi Akademik</b><small>Bandingkan dengan kelompok kelas saat ini</small></div>
+        </div>
+      </div>
+
+      <div class="login-panel">
+        <div class="login-card modern-login">
+          <div class="mobile-login-brand">
+            <div class="logo lg">PK</div>
+            <div><b>PakKom Progress</b><span>Nilai & Perkembangan Akademik</span></div>
+          </div>
+          <div class="login-heading">
+            <span class="eyebrow">SELAMAT DATANG</span>
+            <h2>Masuk ke akun Anda</h2>
+            <p>Gunakan email admin atau NIS siswa.</p>
+          </div>
+
+          <form id="loginForm">
+            <label id="loginIdentifierLabel">Email Admin / NIS Siswa
+              <input id="email" type="text" autocomplete="username" required placeholder="Masukkan email atau NIS">
+            </label>
+            <label>Password
+              <div class="password-wrap">
+                <input id="password" type="password" autocomplete="current-password" required placeholder="Masukkan password">
+                <button type="button" id="togglePassword" class="icon-btn" aria-label="Tampilkan password">👁</button>
+              </div>
+            </label>
+            <button class="btn primary full login-submit" type="submit">Masuk</button>
+            <button class="btn link full" type="button" id="resetPassword">Lupa password?</button>
+            <div id="loginHint" class="login-hint">Siswa menggunakan NIS dan password yang diberikan sekolah.</div>
+            <div id="loginMessage" class="message"></div>
+          </form>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -51,7 +75,7 @@
     <aside class="sidebar">
       <div class="brand">
         <div class="logo">PK</div>
-        <div><b>PakKom</b><span>Student Analytics</span></div>
+        <div><b>PakKom Progress</b><span>Nilai & Perkembangan Akademik</span></div>
       </div>
 
       <nav>
@@ -148,7 +172,7 @@
             <label class="dropzone">
               <div class="upload-icon">⇧</div>
               <b>Pilih file .xlsx / .xls</b>
-              <span>File dibaca di browser dan baru disimpan ke Firebase setelah Anda menekan Simpan.</span>
+              <span>File akan diperiksa terlebih dahulu dan baru disimpan setelah Anda menekan Simpan.</span>
               <input id="excelFile" type="file" accept=".xlsx,.xls" hidden>
             </label>
             <div id="fileInfo" class="message"></div>
@@ -156,7 +180,7 @@
           <article class="panel">
             <h3>3. Preview Import</h3>
             <div id="importSummary" class="preview-box"><div class="empty">Pilih file dan mapping kolom terlebih dahulu.</div></div>
-            <button id="saveImportBtn" class="btn primary full" disabled>Simpan Data Valid ke Firebase</button>
+            <button id="saveImportBtn" class="btn primary full" disabled>Simpan Data Valid</button>
             <div id="saveProgress" class="message"></div>
           </article>
         </div>
@@ -214,7 +238,7 @@
       <section id="settingsPage" class="page hidden">
         <article class="panel">
           <div class="panel-head responsive">
-            <div><h3>Pengaturan Mata Pelajaran</h3><p>Nama, singkatan, urutan, dan status mapel tersimpan di Firebase.</p></div>
+            <div><h3>Pengaturan Mata Pelajaran</h3><p>Atur nama, singkatan, urutan, dan status mata pelajaran.</p></div>
           </div>
           <div class="table-wrap">
             <table id="subjectSettingsTable">
@@ -239,7 +263,7 @@
           <div id="accessMessage" class="message"></div>
           <div class="table-wrap">
             <table id="accessTable">
-              <thead><tr><th>NIS</th><th>Nama</th><th>Email Internal</th><th>Status</th></tr></thead>
+              <thead><tr><th>NIS</th><th>Nama</th><th>Akun Login</th><th>Status</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
@@ -249,7 +273,7 @@
       <section id="recordsPage" class="page hidden">
         <article class="panel">
           <div class="panel-head responsive">
-            <div><h3>Data Nilai</h3><p>Data langsung dibaca dari Cloud Firestore.</p></div>
+            <div><h3>Data Nilai</h3><p>Data nilai yang tersimpan.</p></div>
             <div class="button-row">
               <button id="refreshBtn" class="btn secondary">Muat Ulang</button>
               <button id="deleteAllBtn" class="btn danger">Hapus Semua Nilai</button>
@@ -289,14 +313,18 @@
       </section>
 
       <section id="studentRankPage" class="page hidden student-page">
-        <div class="page-head"><div><h2>Ranking Saya</h2><p>Riwayat posisi Anda di kelas setiap semester.</p></div></div>
+        <div class="page-head"><div><h2>Posisi Akademik Saya</h2><p>Riwayat posisi Anda di kelas setiap semester.</p></div></div>
+        <div class="position-note">
+          <b>Bagaimana posisi dihitung?</b>
+          <p>Posisi setiap semester dibandingkan dengan siswa yang <strong>saat ini</strong> berada di kelas yang sama, bukan berdasarkan susunan kelas pada semester tersebut.</p>
+        </div>
         <div id="studentRankContent"></div>
       </section>
 
 <section id="myGradesPage" class="page hidden">
         <article class="panel">
           <div class="panel-head responsive">
-            <div><h3>Nilai Saya</h3><p>Nilai pribadi dan posisi akademik di kelas.</p></div>
+            <div><h3>Nilai Saya</h3><p>Nilai pribadi dan posisi akademik dibanding kelompok kelas saat ini.</p></div>
             <select id="mySemesterSelect"></select>
           </div>
           <div id="mySummary" class="student-summary"></div>

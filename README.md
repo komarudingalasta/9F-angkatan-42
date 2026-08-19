@@ -250,3 +250,12 @@ Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya 
 - Setelah refresh role dibaca dari profil Firestore.
 - Siswa masuk ke Beranda Saya setelah autentikasi.
 - Semua grafik garis menampilkan angka nilai pada setiap titik.
+
+
+## V14
+- Nama tampilan aplikasi: **PakKom Progress — Nilai & Perkembangan Akademik**.
+- Login dibuat lebih modern dan tidak menampilkan istilah teknis layanan/database.
+- Menu siswa **Ranking Saya** diganti menjadi **Posisi Akademik Saya**.
+- Posisi akademik historis dihitung terhadap kelompok siswa yang **saat ini** berada di kelas yang sama.
+- Contoh: jika siswa sekarang kelas 9F, posisi Semester 1–5 dibandingkan dengan siswa yang sekarang sama-sama berada di 9F, meskipun pada semester lama mereka berasal dari kelas berbeda.
+- Data teknis Firebase tetap ada di kode/repository, tetapi tidak ditampilkan sebagai informasi utama kepada pengguna.

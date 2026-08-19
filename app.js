@@ -34,7 +34,7 @@ if(!configReady()){
           if(!currentProfile){
             await signOut(auth);
             $("app").classList.add("hidden");$("loginScreen").classList.remove("hidden");
-            return setMessage("loginMessage","Akun belum memiliki profil akses di Firestore.",true);
+            return setMessage("loginMessage","Akun belum memiliki izin akses.",true);
           }
           currentLoginRole=currentProfile.role;
           document.body.classList.remove("auth-locked");
@@ -140,7 +140,7 @@ function showPage(page){
   const meta={
     dashboard:["Dashboard","Ringkasan perkembangan akademik"],
     upload:["Upload Leger","Import Excel dengan validasi dan mapping"],
-    records:["Data Nilai","Data Cloud Firestore"],
+    records:["Data Nilai","Data nilai tersimpan"],
     pulse:["Peta Perkembangan Siswa","Meningkat, stabil, dipantau, dan perlu perhatian"],
     students:["Perkembangan Siswa","Student Journey dan Growth Index"],
     subjects:["Analisis Mapel","Tren rata-rata mata pelajaran"],
@@ -150,7 +150,7 @@ function showPage(page){
     studentProgress:["Grafik Perkembangan","Tren nilai dari semester ke semester"],
     studentAnalysis:["Analisis Saya","Kekuatan dan area yang perlu ditingkatkan"],
     studentCompare:["Perbandingan Kelas","Nilai saya dibanding rata-rata kelas"],
-    studentRank:["Ranking Saya","Riwayat posisi ranking setiap semester"]
+    studentRank:["Posisi Akademik Saya","Perkembangan posisi dibanding kelompok kelas saat ini"]
   }[page]||[page,""];
   $("pageTitle").textContent=meta[0];$("pageSubtitle").textContent=meta[1];
   if(page==="records")renderTable();
@@ -179,7 +179,7 @@ function setDataStatus(type,text){
 }
 
 async function reloadData(){
-  setSync("Menyinkronkan…");setDataStatus("info","Menghubungkan dan membaca data dari Firebase…");
+  setSync("Menyinkronkan…");setDataStatus("info","Memuat data…");
   try{
     const subjectSnap=await getDocs(collection(db,"subjects"));
     subjects=subjectSnap.docs.map(d=>({id:d.id,...d.data()}));
@@ -204,8 +204,9 @@ async function reloadData(){
 
       // One summary is expected for every student-semester record.
       // Automatically repair missing/old summary collections.
-      if(records.length && studentSummaries.length !== records.length){
-        setSync("Memperbarui ranking…");
+      const summariesNeedUpgrade=studentSummaries.some(s=>s.comparisonBasis!=="current_class_cohort");
+      if(records.length && (studentSummaries.length !== records.length || summariesNeedUpgrade)){
+        setSync("Memperbarui posisi akademik…");
         await rebuildStudentSummaries();
         const repaired=await getDocs(collection(db,"studentSummaries"));
         studentSummaries=repaired.docs.map(d=>({id:d.id,...d.data()}));
@@ -213,14 +214,14 @@ async function reloadData(){
 
       setSync("Terhubung");
       setDataStatus(records.length?"success":"warn",
-        records.length?`${records.length} data nilai berhasil dimuat dari Firebase.`:"Belum ada data nilai di Firebase. Silakan Upload Leger terlebih dahulu.");
+        records.length?`${records.length} data nilai berhasil dimuat.`:"Belum ada data nilai. Silakan upload leger terlebih dahulu.");
       renderAll();
     }
   }catch(e){
     console.error(e);
     setSync("Gagal sinkron",false);
-    setDataStatus("error","Gagal membaca Firebase: "+(e.message||e));
-    alert("Gagal membaca Firestore: "+e.message);
+    setDataStatus("error","Gagal memuat data: "+(e.message||e));
+    alert("Gagal memuat data: "+e.message);
   }
 }
 function ensureSubjectObjects(){
@@ -500,10 +501,10 @@ $("saveImportBtn").onclick=async()=>{
     await batchSet("records",prepared.map(r=>({id:r.id,data:{nis:r.nis,nama:r.nama,kelas:r.kelas,semester:r.semester,scores:r.scores,updatedAt:serverTimestamp()}})));
     const subMap=new Map();map.filter(m=>m.type==="subject"&&m.subjectName).forEach((m,i)=>{const key=slug(m.subjectName);subMap.set(key,{id:key,data:{key,name:m.subjectName,short:m.subjectName,order:i+1,active:true,updatedAt:serverTimestamp()}})});
     await batchSet("subjects",[...subMap.values()]);
-    pendingFileRows=[];pendingHeaders=[];$("mappingGrid").innerHTML='<div class="empty">Import selesai.</div>';$("importSummary").innerHTML='<div class="message success">Data berhasil disimpan ke Firebase.</div>';setMessage("saveProgress","Membuat ringkasan kelas & ranking…");
+    pendingFileRows=[];pendingHeaders=[];$("mappingGrid").innerHTML='<div class="empty">Import selesai.</div>';$("importSummary").innerHTML='<div class="message success">Data berhasil disimpan ke Firebase.</div>';setMessage("saveProgress","Membuat ringkasan kelas & posisi akademik…");
     await reloadData();
     await rebuildStudentSummaries();
-    setMessage("saveProgress","Data, rata-rata kelas, dan ranking berhasil diperbarui.");
+    setMessage("saveProgress","Data, rata-rata kelas, dan posisi akademik berhasil diperbarui.");
   }catch(e){console.error(e);setMessage("saveProgress","Gagal menyimpan: "+e.message,true)}finally{$("saveImportBtn").disabled=false}
 };
 function recordId(r){
@@ -527,40 +528,78 @@ function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>f
 
 async function rebuildStudentSummaries(){
   if(currentProfile?.role!=="admin")return;
-  const byClassSemester=new Map();
+
+  // Determine each student's CURRENT class from their latest available semester.
+  const latestByStudent=new Map();
   records.forEach(r=>{
-    const k=`${r.kelas}|||${r.semester}`;
-    if(!byClassSemester.has(k))byClassSemester.set(k,[]);
-    byClassSemester.get(k).push(r);
+    const k=studentKey(r);
+    const prev=latestByStudent.get(k);
+    if(!prev || semesterRank(r.semester)>semesterRank(prev.semester))latestByStudent.set(k,r);
   });
-  const items=[];
-  for(const [groupKey,list] of byClassSemester){
-    const [kelas,semester]=groupKey.split("|||");
-    const ss=subjectKeys(list);
-    const subjectAverages={};
-    ss.forEach(s=>subjectAverages[s]=avg(list.map(r=>r.scores?.[s])));
-    const classReportAverage=avg(list.map(rowAvg));
-    const ranked=[...list].map(r=>({r,avg:rowAvg(r)})).sort((a,b)=>b.avg-a.avg||String(a.r.nama).localeCompare(String(b.r.nama)));
-    let lastAvg=null,lastRank=0;
-    ranked.forEach((entry,index)=>{
-      const rank=(lastAvg!==null&&Math.abs(entry.avg-lastAvg)<0.0001)?lastRank:index+1;
-      lastAvg=entry.avg;lastRank=rank;
-      const id=`${slug(entry.r.nis||entry.r.nama)}_${slug(kelas)}_${slug(semester)}`.slice(0,220);
-      items.push({id,data:{
-        nis:entry.r.nis,nama:entry.r.nama,kelas,semester,
-        studentAverage:entry.avg,
-        classReportAverage,
-        subjectAverages,
-        rank,
-        classSize:ranked.length,
-        updatedAt:serverTimestamp()
-      }});
-    });
+
+  const currentClassByStudent=new Map(
+    [...latestByStudent.entries()].map(([k,r])=>[k,r.kelas])
+  );
+
+  // Group students by their current class.
+  const cohortStudents=new Map();
+  for(const [k,currentRecord] of latestByStudent){
+    const cls=currentRecord.kelas||"-";
+    if(!cohortStudents.has(cls))cohortStudents.set(cls,new Set());
+    cohortStudents.get(cls).add(k);
   }
+
+  const allSemesters=uniq(records.map(r=>r.semester)).sort((a,b)=>semesterRank(a)-semesterRank(b));
+  const recordByStudentSemester=new Map();
+  records.forEach(r=>recordByStudentSemester.set(`${studentKey(r)}|||${r.semester}`,r));
+
+  const items=[];
+
+  for(const [currentClass,studentKeys] of cohortStudents){
+    for(const semester of allSemesters){
+      // Historical records are selected by CURRENT cohort membership,
+      // regardless of what class the student belonged to in that semester.
+      const list=[...studentKeys]
+        .map(k=>recordByStudentSemester.get(`${k}|||${semester}`))
+        .filter(Boolean);
+
+      if(!list.length)continue;
+
+      const ss=subjectKeys(list);
+      const subjectAverages={};
+      ss.forEach(s=>subjectAverages[s]=avg(list.map(r=>r.scores?.[s])));
+      const classReportAverage=avg(list.map(rowAvg));
+
+      const ranked=[...list]
+        .map(r=>({r,avg:rowAvg(r)}))
+        .sort((a,b)=>b.avg-a.avg||String(a.r.nama).localeCompare(String(b.r.nama)));
+
+      let lastAvg=null,lastRank=0;
+      ranked.forEach((entry,index)=>{
+        const rank=(lastAvg!==null&&Math.abs(entry.avg-lastAvg)<0.0001)?lastRank:index+1;
+        lastAvg=entry.avg;lastRank=rank;
+        const id=`${slug(entry.r.nis||entry.r.nama)}_${slug(currentClass)}_${slug(semester)}`.slice(0,220);
+        items.push({id,data:{
+          nis:entry.r.nis,
+          nama:entry.r.nama,
+          currentClass,
+          historicalClass:entry.r.kelas||"",
+          semester,
+          studentAverage:entry.avg,
+          classReportAverage,
+          subjectAverages,
+          rank,
+          classSize:ranked.length,
+          comparisonBasis:"current_class_cohort",
+          updatedAt:serverTimestamp()
+        }});
+      });
+    }
+  }
+
   await deleteCollectionDocs("studentSummaries");
   await batchSet("studentSummaries",items);
 }
-
 
 let studentProgressChartInstance=null;
 
@@ -590,7 +629,7 @@ function renderStudentHome(){
     <div class="student-kpi-grid">
       <div class="student-kpi"><span>Rata-rata terbaru</span><b>${fmt(avg)}</b><small>${escapeHtml(latest.semester)}</small></div>
       <div class="student-kpi"><span>Perubahan</span><b>${Number.isFinite(change)?`${change>=0?"+":""}${fmt(change)}`:"-"}</b><small>dari semester sebelumnya</small></div>
-      <div class="student-kpi"><span>Ranking kelas</span><b>${summary?summary.rank:"-"}</b><small>${summary?`dari ${summary.classSize} siswa`:"menunggu ringkasan"}</small></div>
+      <div class="student-kpi"><span>Posisi Akademik</span><b>${summary?summary.rank:"-"}</b><small>${summary?`dari ${summary.classSize} siswa`:"menunggu pembaruan"}</small></div>
       <div class="student-kpi"><span>Rata-rata kelas</span><b>${summary?fmt(summary.classReportAverage):"-"}</b><small>${escapeHtml(latest.semester)}</small></div>
     </div>
     <div class="student-insight-grid">
@@ -641,10 +680,17 @@ function renderStudentCompare(){
 }
 function renderStudentRank(){
   const rows=myOrderedRecords();
-  $("studentRankContent").innerHTML=`<div class="rank-timeline">${rows.map(r=>{
-    const s=summaryForSemester(r.semester);
-    return `<div class="rank-row"><div><b>${escapeHtml(r.semester)}</b><small>Rata-rata ${fmt(rowAvg(r))}</small></div><strong>${s?`#${s.rank}`:"-"}</strong><span class="rank-badge">${s?`${s.rank}/${s.classSize}`:"Belum tersedia"}</span></div>`;
-  }).join("")||'<div class="empty">Belum ada riwayat semester.</div>'}</div>`;
+  const latest=rows.at(-1);
+  const currentClass=latest?.kelas||currentProfile?.kelas||"-";
+  $("studentRankContent").innerHTML=`
+    <div class="rank-timeline">${rows.map(r=>{
+      const s=summaryForSemester(r.semester);
+      return `<div class="rank-row">
+        <div><b>${escapeHtml(r.semester)}</b><small>Rata-rata ${fmt(rowAvg(r))} · dibanding siswa yang saat ini di kelas ${escapeHtml(currentClass)}</small></div>
+        <strong>${s?`#${s.rank}`:"-"}</strong>
+        <span class="rank-badge">${s?`${s.rank}/${s.classSize}`:"Belum tersedia"}</span>
+      </div>`;
+    }).join("")||'<div class="empty">Belum ada riwayat semester.</div>'}</div>`;
 }
 function renderAllStudentAnalytics(){
   if(currentProfile?.role!=="student")return;
@@ -681,7 +727,7 @@ function renderMySemester(){
     <div class="identity-card"><div class="avatar">${escapeHtml(rec.nama?.[0]||"S")}</div><div><h3>${escapeHtml(rec.nama)}</h3><p>NIS ${escapeHtml(rec.nis)} · Kelas ${escapeHtml(rec.kelas)} · ${escapeHtml(semester)}</p></div></div>
     <div class="summary-card"><span>Rata-rata Rapor Saya</span><b>${fmt(reportAverage)}</b></div>
     <div class="summary-card"><span>Rata-rata Rapor Kelas</span><b>${summary?fmt(summary.classReportAverage):"-"}</b></div>
-    <div class="summary-card rank-highlight"><span>Ranking Kelas</span><b>${summary?`${summary.rank} / ${summary.classSize}`:"-"}</b></div>`;
+    <div class="summary-card rank-highlight"><span>Posisi Akademik</span><b>${summary?`${summary.rank} / ${summary.classSize}`:"-"}</b><small>Dibanding kelompok kelas saat ini</small></div>`;
 
   const ss=subjectKeys([rec]);
   $("myGradesTable").querySelector("tbody").innerHTML=ss.map(s=>{
