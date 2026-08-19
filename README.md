@@ -250,3 +250,10 @@ Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya 
 - Setelah refresh role dibaca dari profil Firestore.
 - Siswa masuk ke Beranda Saya setelah autentikasi.
 - Semua grafik garis menampilkan angka nilai pada setiap titik.
+
+
+## V14
+- Istilah siswa "Ranking" diganti menjadi "Posisi Akademik".
+- Ditambahkan penjelasan bahwa posisi semester dibandingkan dengan kelompok siswa yang berada di kelas saat ini.
+- Teks login disederhanakan.
+- Istilah teknis Firebase/Firestore dihilangkan dari pesan yang dilihat pengguna.

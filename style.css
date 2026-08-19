@@ -174,3 +174,9 @@ body.auth-locked #sidebarToggle{
 /* V13 */
 .login-tabs{display:none!important}
 .chart-note{font-size:9px;color:var(--muted);text-align:center;margin-top:7px}
+
+/* V14 */
+.academic-position-note{
+  margin:0 0 12px;padding:10px 12px;border:1px solid var(--line);
+  border-radius:11px;background:#f7f9fc;color:var(--muted);font-size:9px;line-height:1.5
+}

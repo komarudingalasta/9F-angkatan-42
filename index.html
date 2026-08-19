@@ -27,10 +27,10 @@
     <div class="login-card">
       <div class="logo lg">PK</div>
       <h1>PakKom Student Analytics</h1>
-      <p id="loginDescription">Masukkan email admin atau NIS siswa. Sistem akan mengenali akses secara otomatis.</p>
+      <p id="loginDescription">Masuk untuk melihat perkembangan nilai.</p>
 <form id="loginForm">
-        <label id="loginIdentifierLabel">Email Admin / NIS Siswa
-          <input id="email" type="text" autocomplete="username" required placeholder="Email admin atau NIS siswa">
+        <label id="loginIdentifierLabel">Email / NIS
+          <input id="email" type="text" autocomplete="username" required placeholder="Email atau NIS">
         </label>
         <label>Password
           <div class="password-wrap">
@@ -40,7 +40,7 @@
         </label>
         <button class="btn primary full" type="submit">Masuk</button>
         <button class="btn link full" type="button" id="resetPassword">Lupa password?</button>
-        <div id="loginHint" class="login-hint">Admin: email + password Firebase · Siswa: NIS + password default 123456.</div>
+        <div id="loginHint" class="login-hint">Gunakan email atau NIS dan password Anda.</div>
         <div id="loginMessage" class="message"></div>
       </form>
     </div>
@@ -61,7 +61,7 @@
         <button class="nav student-only hidden" data-page="studentProgress"><span>↗</span> Grafik Perkembangan</button>
         <button class="nav student-only hidden" data-page="studentAnalysis"><span>◎</span> Analisis Saya</button>
         <button class="nav student-only hidden" data-page="studentCompare"><span>⇄</span> Perbandingan Kelas</button>
-        <button class="nav student-only hidden" data-page="studentRank"><span>★</span> Ranking Saya</button>
+        <button class="nav student-only hidden" data-page="studentRank"><span>★</span> Posisi Akademik Saya</button>
 
         <div class="nav-label admin-only">DATA AKADEMIK</div>
         <button class="nav admin-only" data-page="upload">⇧ <span>Upload Leger</span></button>
@@ -289,7 +289,8 @@
       </section>
 
       <section id="studentRankPage" class="page hidden student-page">
-        <div class="page-head"><div><h2>Ranking Saya</h2><p>Riwayat posisi Anda di kelas setiap semester.</p></div></div>
+        <div class="page-head"><div><h2>Posisi Akademik Saya</h2><p>Perkembangan posisi akademik Anda dibanding kelompok siswa di kelas saat ini.</p></div></div>
+        <div class="academic-position-note">Posisi setiap semester dihitung dengan membandingkan nilai Anda dengan kelompok siswa yang berada di kelas saat ini.</div>
         <div id="studentRankContent"></div>
       </section>
 

@@ -34,7 +34,7 @@ if(!configReady()){
           if(!currentProfile){
             await signOut(auth);
             $("app").classList.add("hidden");$("loginScreen").classList.remove("hidden");
-            return setMessage("loginMessage","Akun belum memiliki profil akses di Firestore.",true);
+            return setMessage("loginMessage","Akun belum memiliki profil akses.",true);
           }
           currentLoginRole=currentProfile.role;
           document.body.classList.remove("auth-locked");
@@ -104,7 +104,7 @@ $("resetPassword").onclick=async()=>{
   }
   try{
     await sendPasswordResetEmail(auth,identifier);
-    setMessage("loginMessage","Email reset password telah dikirim.");
+    setMessage("loginMessage","Tautan reset password telah dikirim ke email Anda.");
   }catch(e){setMessage("loginMessage",friendlyAuthError(e),true)}
 };
 $("logoutBtn").onclick=async()=>{
@@ -150,7 +150,7 @@ function showPage(page){
     studentProgress:["Grafik Perkembangan","Tren nilai dari semester ke semester"],
     studentAnalysis:["Analisis Saya","Kekuatan dan area yang perlu ditingkatkan"],
     studentCompare:["Perbandingan Kelas","Nilai saya dibanding rata-rata kelas"],
-    studentRank:["Ranking Saya","Riwayat posisi ranking setiap semester"]
+    studentRank:["Posisi Akademik Saya","Perkembangan posisi dibanding kelompok kelas saat ini"]
   }[page]||[page,""];
   $("pageTitle").textContent=meta[0];$("pageSubtitle").textContent=meta[1];
   if(page==="records")renderTable();
@@ -179,7 +179,7 @@ function setDataStatus(type,text){
 }
 
 async function reloadData(){
-  setSync("Menyinkronkan…");setDataStatus("info","Menghubungkan dan membaca data dari Firebase…");
+  setSync("Menyinkronkan…");setDataStatus("info","Memuat data…");
   try{
     const subjectSnap=await getDocs(collection(db,"subjects"));
     subjects=subjectSnap.docs.map(d=>({id:d.id,...d.data()}));
@@ -205,7 +205,7 @@ async function reloadData(){
       // One summary is expected for every student-semester record.
       // Automatically repair missing/old summary collections.
       if(records.length && studentSummaries.length !== records.length){
-        setSync("Memperbarui ranking…");
+        setSync("Memperbarui posisi…");
         await rebuildStudentSummaries();
         const repaired=await getDocs(collection(db,"studentSummaries"));
         studentSummaries=repaired.docs.map(d=>({id:d.id,...d.data()}));
@@ -213,14 +213,14 @@ async function reloadData(){
 
       setSync("Terhubung");
       setDataStatus(records.length?"success":"warn",
-        records.length?`${records.length} data nilai berhasil dimuat dari Firebase.`:"Belum ada data nilai di Firebase. Silakan Upload Leger terlebih dahulu.");
+        records.length?`${records.length} data nilai berhasil dimuat.`:"Belum ada data nilai di Firebase. Silakan Upload Leger terlebih dahulu.");
       renderAll();
     }
   }catch(e){
     console.error(e);
     setSync("Gagal sinkron",false);
-    setDataStatus("error","Gagal membaca Firebase: "+(e.message||e));
-    alert("Gagal membaca Firestore: "+e.message);
+    setDataStatus("error","Gagal memuat data: "+(e.message||e));
+    alert("Gagal memuat data: "+e.message);
   }
 }
 function ensureSubjectObjects(){
@@ -451,7 +451,7 @@ function guessType(h){
   if(["nama","nama siswa","siswa","nama lengkap"].includes(k))return"nama";
   if(["kelas","rombel","class"].includes(k))return"kelas";
   if(["semester","smt","periode"].includes(k))return"semester";
-  if(/ranking|peringkat|jumlah|rata.?rata|sakit|izin|alpa|absen|kehadiran/i.test(k))return"ignore";
+  if(/posisi|peringkat|jumlah|rata.?rata|sakit|izin|alpa|absen|kehadiran/i.test(k))return"ignore";
   return"subject";
 }
 function slug(s){return normalizeHeader(s).replace(/[^a-z0-9 ]/g,"").trim().replace(/\s+/g,"_")}
@@ -500,10 +500,10 @@ $("saveImportBtn").onclick=async()=>{
     await batchSet("records",prepared.map(r=>({id:r.id,data:{nis:r.nis,nama:r.nama,kelas:r.kelas,semester:r.semester,scores:r.scores,updatedAt:serverTimestamp()}})));
     const subMap=new Map();map.filter(m=>m.type==="subject"&&m.subjectName).forEach((m,i)=>{const key=slug(m.subjectName);subMap.set(key,{id:key,data:{key,name:m.subjectName,short:m.subjectName,order:i+1,active:true,updatedAt:serverTimestamp()}})});
     await batchSet("subjects",[...subMap.values()]);
-    pendingFileRows=[];pendingHeaders=[];$("mappingGrid").innerHTML='<div class="empty">Import selesai.</div>';$("importSummary").innerHTML='<div class="message success">Data berhasil disimpan ke Firebase.</div>';setMessage("saveProgress","Membuat ringkasan kelas & ranking…");
+    pendingFileRows=[];pendingHeaders=[];$("mappingGrid").innerHTML='<div class="empty">Import selesai.</div>';$("importSummary").innerHTML='<div class="message success">Data berhasil disimpan ke Firebase.</div>';setMessage("saveProgress","Membuat ringkasan kelas & posisi…");
     await reloadData();
     await rebuildStudentSummaries();
-    setMessage("saveProgress","Data, rata-rata kelas, dan ranking berhasil diperbarui.");
+    setMessage("saveProgress","Data, rata-rata kelas, dan posisi berhasil diperbarui.");
   }catch(e){console.error(e);setMessage("saveProgress","Gagal menyimpan: "+e.message,true)}finally{$("saveImportBtn").disabled=false}
 };
 function recordId(r){
@@ -590,7 +590,7 @@ function renderStudentHome(){
     <div class="student-kpi-grid">
       <div class="student-kpi"><span>Rata-rata terbaru</span><b>${fmt(avg)}</b><small>${escapeHtml(latest.semester)}</small></div>
       <div class="student-kpi"><span>Perubahan</span><b>${Number.isFinite(change)?`${change>=0?"+":""}${fmt(change)}`:"-"}</b><small>dari semester sebelumnya</small></div>
-      <div class="student-kpi"><span>Ranking kelas</span><b>${summary?summary.rank:"-"}</b><small>${summary?`dari ${summary.classSize} siswa`:"menunggu ringkasan"}</small></div>
+      <div class="student-kpi"><span>Posisi akademik</span><b>${summary?summary.rank:"-"}</b><small>${summary?`dari ${summary.classSize} siswa`:"menunggu ringkasan"}</small></div>
       <div class="student-kpi"><span>Rata-rata kelas</span><b>${summary?fmt(summary.classReportAverage):"-"}</b><small>${escapeHtml(latest.semester)}</small></div>
     </div>
     <div class="student-insight-grid">
@@ -681,7 +681,7 @@ function renderMySemester(){
     <div class="identity-card"><div class="avatar">${escapeHtml(rec.nama?.[0]||"S")}</div><div><h3>${escapeHtml(rec.nama)}</h3><p>NIS ${escapeHtml(rec.nis)} · Kelas ${escapeHtml(rec.kelas)} · ${escapeHtml(semester)}</p></div></div>
     <div class="summary-card"><span>Rata-rata Rapor Saya</span><b>${fmt(reportAverage)}</b></div>
     <div class="summary-card"><span>Rata-rata Rapor Kelas</span><b>${summary?fmt(summary.classReportAverage):"-"}</b></div>
-    <div class="summary-card rank-highlight"><span>Ranking Kelas</span><b>${summary?`${summary.rank} / ${summary.classSize}`:"-"}</b></div>`;
+    <div class="summary-card rank-highlight"><span>Posisi Akademik</span><b>${summary?`${summary.rank} / ${summary.classSize}`:"-"}</b></div>`;
 
   const ss=subjectKeys([rec]);
   $("myGradesTable").querySelector("tbody").innerHTML=ss.map(s=>{
@@ -699,7 +699,7 @@ function renderMySemester(){
 
   if(!summary){
     $("mySummary").insertAdjacentHTML("afterend",
-      '<div id="studentSummaryNotice" class="student-data-notice">Nilai pribadi sudah tersedia. Rata-rata kelas dan ranking sedang menunggu pembaruan ringkasan oleh admin. Login admin satu kali untuk membangun ringkasan otomatis.</div>');
+      '<div id="studentSummaryNotice" class="student-data-notice">Nilai pribadi sudah tersedia. Rata-rata kelas dan posisi sedang menunggu pembaruan ringkasan oleh admin. Login admin satu kali untuk membangun ringkasan otomatis.</div>');
   }else{
     document.getElementById("studentSummaryNotice")?.remove();
   }
