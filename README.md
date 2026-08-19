@@ -220,3 +220,17 @@ setelah admin menyimpan leger ke Firebase.
   - data berhasil dimuat,
   - belum ada data nilai,
   - atau error Firestore.
+
+
+## V11 — Portal siswa lebih lengkap
+
+Akun siswa tetap hanya dapat membaca data miliknya sendiri, tetapi kini memiliki:
+- Beranda Saya
+- Nilai Saya
+- Grafik Perkembangan
+- Analisis Saya
+- Perbandingan Kelas
+- Ranking Saya
+- Keluar
+
+Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya memakai nilai agregat/rata-rata kelas.

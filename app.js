@@ -146,7 +146,7 @@ function showPage(page){
   document.querySelectorAll(".nav[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
   const meta={dashboard:["Dashboard","Ringkasan perkembangan akademik"],upload:["Upload Leger","Import Excel dengan validasi dan mapping"],records:["Data Nilai","Data Cloud Firestore"],pulse:["Peta Perkembangan Siswa","Meningkat, stabil, dipantau, dan perlu perhatian"],students:["Perkembangan Siswa","Student Journey dan Growth Index"],subjects:["Analisis Mapel","Tren rata-rata mata pelajaran"],settings:["Pengaturan","Mata pelajaran dan akses siswa"],myGrades:["Nilai Saya","Nilai pribadi, rata-rata kelas, dan ranking"]}[page];
   $("pageTitle").textContent=meta[0];$("pageSubtitle").textContent=meta[1];
-  if(page==="records")renderTable();if(page==="pulse")renderPulse("pulseGrid");if(page==="students")renderStudentList();if(page==="subjects")renderSubjects();if(page==="settings"){renderSettings();renderStudentAccess();}if(page==="myGrades")renderMyGrades();
+  if(page==="records")renderTable();if(page==="pulse")renderPulse("pulseGrid");if(page==="students")renderStudentList();if(page==="subjects")renderSubjects();if(page==="settings"){renderSettings();renderStudentAccess();}if(page==="myGrades")renderAllStudentAnalytics();
 }
 
 
@@ -459,6 +459,98 @@ async function rebuildStudentSummaries(){
   await deleteCollectionDocs("studentSummaries");
   await batchSet("studentSummaries",items);
 }
+
+
+let studentProgressChartInstance=null;
+
+function myOrderedRecords(){
+  return [...records].sort((a,b)=>semesterRank(a.semester)-semesterRank(b.semester));
+}
+function summaryForSemester(semester){
+  return studentSummaries.find(s=>s.semester===semester);
+}
+function renderStudentHome(){
+  const rows=myOrderedRecords();
+  const latest=rows.at(-1);
+  if(!latest){$("studentHomeContent").innerHTML='<div class="empty">Belum ada data nilai.</div>';return}
+  const prev=rows.at(-2);
+  const avg=rowAvg(latest), prevAvg=prev?rowAvg(prev):NaN;
+  const change=Number.isFinite(prevAvg)?avg-prevAvg:NaN;
+  const summary=summaryForSemester(latest.semester);
+  const subjects=subjectKeys([latest]);
+  const scored=subjects.map(s=>({s,v:Number(latest.scores?.[s])})).filter(x=>Number.isFinite(x.v)).sort((a,b)=>b.v-a.v);
+  const strongest=scored[0], weakest=scored.at(-1);
+  let improved=null;
+  if(prev){
+    improved=subjects.map(s=>({s,d:Number(latest.scores?.[s])-Number(prev.scores?.[s])}))
+      .filter(x=>Number.isFinite(x.d)).sort((a,b)=>b.d-a.d)[0];
+  }
+  $("studentHomeContent").innerHTML=`
+    <div class="student-kpi-grid">
+      <div class="student-kpi"><span>Rata-rata terbaru</span><b>${fmt(avg)}</b><small>${escapeHtml(latest.semester)}</small></div>
+      <div class="student-kpi"><span>Perubahan</span><b>${Number.isFinite(change)?`${change>=0?"+":""}${fmt(change)}`:"-"}</b><small>dari semester sebelumnya</small></div>
+      <div class="student-kpi"><span>Ranking kelas</span><b>${summary?summary.rank:"-"}</b><small>${summary?`dari ${summary.classSize} siswa`:"menunggu ringkasan"}</small></div>
+      <div class="student-kpi"><span>Rata-rata kelas</span><b>${summary?fmt(summary.classReportAverage):"-"}</b><small>${escapeHtml(latest.semester)}</small></div>
+    </div>
+    <div class="student-insight-grid">
+      <div class="student-insight"><div class="icon">🏆</div><h3>Mapel Terkuat</h3><p>${strongest?`${escapeHtml(subjectLabel(strongest.s))} · ${fmt(strongest.v)}`:"Belum tersedia"}</p></div>
+      <div class="student-insight"><div class="icon">🚀</div><h3>Peningkatan Terbesar</h3><p>${improved?`${escapeHtml(subjectLabel(improved.s))} · ${improved.d>=0?"+":""}${fmt(improved.d)}`:"Butuh minimal 2 semester"}</p></div>
+      <div class="student-insight"><div class="icon">🎯</div><h3>Perlu Ditingkatkan</h3><p>${weakest?`${escapeHtml(subjectLabel(weakest.s))} · ${fmt(weakest.v)}`:"Belum tersedia"}</p></div>
+    </div>`;
+}
+function populateStudentChartMetric(){
+  const rows=myOrderedRecords(), subjects=subjectKeys(rows), sel=$("studentChartMetric");
+  const current=sel.value;
+  sel.innerHTML='<option value="average">Rata-rata Rapor</option>'+subjects.map(s=>`<option value="${escapeHtml(s)}">${escapeHtml(subjectLabel(s))}</option>`).join("");
+  if([...sel.options].some(o=>o.value===current))sel.value=current;
+}
+function renderStudentProgress(){
+  populateStudentChartMetric();
+  const rows=myOrderedRecords(), metric=$("studentChartMetric").value;
+  const labels=rows.map(r=>r.semester);
+  const values=rows.map(r=>metric==="average"?rowAvg(r):Number(r.scores?.[metric]));
+  const canvas=$("studentProgressChart");
+  if(studentProgressChartInstance)studentProgressChartInstance.destroy();
+  if(typeof Chart==="undefined"){canvas.parentElement.innerHTML='<div class="empty">Komponen grafik belum termuat.</div>';return}
+  studentProgressChartInstance=new Chart(canvas,{type:"line",data:{labels,datasets:[{label:metric==="average"?"Rata-rata Rapor":subjectLabel(metric),data:values,tension:.25,fill:false}]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{suggestedMin:0,suggestedMax:100}},plugins:{legend:{display:true}}}});
+}
+function renderStudentAnalysis(){
+  const rows=myOrderedRecords(), latest=rows.at(-1), prev=rows.at(-2);
+  if(!latest){$("studentAnalysisContent").innerHTML='<div class="empty">Belum ada data nilai.</div>';return}
+  const subjects=subjectKeys([latest]);
+  const arr=subjects.map(s=>({s,v:Number(latest.scores?.[s]),prev:prev?Number(prev.scores?.[s]):NaN}))
+    .filter(x=>Number.isFinite(x.v)).map(x=>({...x,d:Number.isFinite(x.prev)?x.v-x.prev:NaN}));
+  const strongest=[...arr].sort((a,b)=>b.v-a.v).slice(0,3);
+  const improve=[...arr].filter(x=>Number.isFinite(x.d)).sort((a,b)=>b.d-a.d).slice(0,3);
+  const attention=[...arr].sort((a,b)=>a.v-b.v).slice(0,3);
+  const block=(title,icon,data,mode)=>`<div class="card"><h3>${icon} ${title}</h3><div class="analysis-list">${data.map(x=>`<div class="analysis-item"><span>${escapeHtml(subjectLabel(x.s))}</span><b>${mode==="diff"?`${x.d>=0?"+":""}${fmt(x.d)}`:fmt(x.v)}</b></div>`).join("")||'<div class="empty">Belum cukup data.</div>'}</div></div>`;
+  $("studentAnalysisContent").innerHTML=block("Nilai Terkuat","🏆",strongest,"score")+block("Peningkatan Terbesar","🚀",improve,"diff")+block("Prioritas Peningkatan","🎯",attention,"score");
+}
+function renderStudentCompare(){
+  const rows=myOrderedRecords(), sel=$("studentCompareSemester");
+  const current=sel.value;
+  sel.innerHTML=rows.map(r=>`<option value="${escapeHtml(r.semester)}">${escapeHtml(r.semester)}</option>`).join("");
+  if(rows.some(r=>r.semester===current))sel.value=current; else if(rows.length)sel.value=rows.at(-1).semester;
+  const rec=rows.find(r=>r.semester===sel.value), sum=summaryForSemester(sel.value);
+  if(!rec){$("studentCompareBody").innerHTML="";return}
+  $("studentCompareBody").innerHTML=subjectKeys([rec]).map(s=>{
+    const mine=Number(rec.scores?.[s]), cls=Number(sum?.subjectAverages?.[s]), diff=mine-cls;
+    return `<tr><td><b>${escapeHtml(subjectLabel(s))}</b></td><td>${fmt(mine)}</td><td>${Number.isFinite(cls)?fmt(cls):"-"}</td><td class="${Number.isFinite(diff)?(diff>=0?"positive-diff":"negative-diff"):""}">${Number.isFinite(diff)?`${diff>=0?"+":""}${fmt(diff)}`:"-"}</td></tr>`;
+  }).join("");
+}
+function renderStudentRank(){
+  const rows=myOrderedRecords();
+  $("studentRankContent").innerHTML=`<div class="rank-timeline">${rows.map(r=>{
+    const s=summaryForSemester(r.semester);
+    return `<div class="rank-row"><div><b>${escapeHtml(r.semester)}</b><small>Rata-rata ${fmt(rowAvg(r))}</small></div><strong>${s?`#${s.rank}`:"-"}</strong><span class="rank-badge">${s?`${s.rank}/${s.classSize}`:"Belum tersedia"}</span></div>`;
+  }).join("")||'<div class="empty">Belum ada riwayat semester.</div>'}</div>`;
+}
+function renderAllStudentAnalytics(){
+  renderMyGrades();renderStudentHome();renderStudentAnalysis();renderStudentCompare();renderStudentRank();
+  setTimeout(renderStudentProgress,0);
+}
+$("studentChartMetric")?.addEventListener("change",renderStudentProgress);
+$("studentCompareSemester")?.addEventListener("change",renderStudentCompare);
 
 function renderMyGrades(){
   if(currentProfile?.role!=="student")return;

@@ -61,6 +61,11 @@
       <nav>
         <button class="nav admin-only active" data-page="dashboard">⌂ <span>Dashboard</span></button>
         <button class="nav student-only hidden" data-page="myGrades">◔ <span>Nilai Saya</span></button>
+        <button class="nav student-only hidden" data-page="studentHome"><span>⌂</span> Beranda Saya</button>
+        <button class="nav student-only hidden" data-page="studentProgress"><span>↗</span> Grafik Perkembangan</button>
+        <button class="nav student-only hidden" data-page="studentAnalysis"><span>◎</span> Analisis Saya</button>
+        <button class="nav student-only hidden" data-page="studentCompare"><span>⇄</span> Perbandingan Kelas</button>
+        <button class="nav student-only hidden" data-page="studentRank"><span>★</span> Ranking Saya</button>
 
         <div class="nav-label admin-only">DATA AKADEMIK</div>
         <button class="nav admin-only" data-page="upload">⇧ <span>Upload Leger</span></button>
@@ -258,7 +263,41 @@
         </article>
       </section>
 
-      <section id="myGradesPage" class="page hidden">
+      
+      <section id="studentHomePage" class="page hidden student-page">
+        <div class="page-head"><div><h2>Beranda Saya</h2><p>Ringkasan perkembangan akademik pribadi.</p></div></div>
+        <div id="studentHomeContent"></div>
+      </section>
+
+      <section id="studentProgressPage" class="page hidden student-page">
+        <div class="page-head"><div><h2>Grafik Perkembangan</h2><p>Lihat perubahan nilai dari semester ke semester.</p></div></div>
+        <div class="card">
+          <div class="student-chart-controls">
+            <select id="studentChartMetric"><option value="average">Rata-rata Rapor</option></select>
+          </div>
+          <div class="chart-wrap student-chart-wrap"><canvas id="studentProgressChart"></canvas></div>
+        </div>
+      </section>
+
+      <section id="studentAnalysisPage" class="page hidden student-page">
+        <div class="page-head"><div><h2>Analisis Saya</h2><p>Kekuatan, peningkatan, dan nilai yang perlu ditingkatkan.</p></div></div>
+        <div id="studentAnalysisContent"></div>
+      </section>
+
+      <section id="studentComparePage" class="page hidden student-page">
+        <div class="page-head"><div><h2>Perbandingan Kelas</h2><p>Nilai Anda dibanding rata-rata kelas tanpa menampilkan data siswa lain.</p></div></div>
+        <div class="card">
+          <select id="studentCompareSemester"></select>
+          <div class="table-wrap"><table><thead><tr><th>Mata Pelajaran</th><th>Nilai Saya</th><th>Rata-rata Kelas</th><th>Selisih</th></tr></thead><tbody id="studentCompareBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section id="studentRankPage" class="page hidden student-page">
+        <div class="page-head"><div><h2>Ranking Saya</h2><p>Riwayat posisi Anda di kelas setiap semester.</p></div></div>
+        <div id="studentRankContent"></div>
+      </section>
+
+<section id="myGradesPage" class="page hidden">
         <article class="panel">
           <div class="panel-head responsive">
             <div><h3>Nilai Saya</h3><p>Nilai pribadi dan posisi akademik di kelas.</p></div>
