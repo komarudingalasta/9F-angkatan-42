@@ -35,11 +35,8 @@ if(!configReady()){
             $("app").classList.add("hidden");$("loginScreen").classList.remove("hidden");
             return setMessage("loginMessage","Akun belum memiliki profil akses di Firestore.",true);
           }
-          if(currentProfile.role!==currentLoginRole){
-            const actual=currentProfile.role==="student"?"Siswa":"Admin";
-            await signOut(auth);
-            return setMessage("loginMessage",`Akun ini terdaftar sebagai ${actual}. Pilih tab login yang sesuai.`,true);
-          }
+          currentLoginRole=currentProfile.role;
+          document.querySelectorAll(".login-tab").forEach(b=>b.classList.toggle("active",b.dataset.role===currentLoginRole));
           document.body.classList.remove("auth-locked");
           $("loginScreen").classList.add("hidden");$("setupScreen").classList.add("hidden");$("app").classList.remove("hidden");
           $("userEmail").textContent=currentProfile.role==="student"?`NIS ${currentProfile.nis}`:(user.email||"Admin");
@@ -142,13 +139,38 @@ function setSync(text,ok=true){$("syncText").textContent=text;$("syncDot").style
 document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>showPage(b.dataset.page));
 function showPage(page){
   document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
-  $(page+"Page").classList.remove("hidden");
+  const target=$(page+"Page");
+  if(!target){console.error("Halaman tidak ditemukan:",page);return}
+  target.classList.remove("hidden");
   document.querySelectorAll(".nav[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
-  const meta={dashboard:["Dashboard","Ringkasan perkembangan akademik"],upload:["Upload Leger","Import Excel dengan validasi dan mapping"],records:["Data Nilai","Data Cloud Firestore"],pulse:["Peta Perkembangan Siswa","Meningkat, stabil, dipantau, dan perlu perhatian"],students:["Perkembangan Siswa","Student Journey dan Growth Index"],subjects:["Analisis Mapel","Tren rata-rata mata pelajaran"],settings:["Pengaturan","Mata pelajaran dan akses siswa"],myGrades:["Nilai Saya","Nilai pribadi, rata-rata kelas, dan ranking"]}[page];
+  const meta={
+    dashboard:["Dashboard","Ringkasan perkembangan akademik"],
+    upload:["Upload Leger","Import Excel dengan validasi dan mapping"],
+    records:["Data Nilai","Data Cloud Firestore"],
+    pulse:["Peta Perkembangan Siswa","Meningkat, stabil, dipantau, dan perlu perhatian"],
+    students:["Perkembangan Siswa","Student Journey dan Growth Index"],
+    subjects:["Analisis Mapel","Tren rata-rata mata pelajaran"],
+    settings:["Pengaturan","Mata pelajaran dan akses siswa"],
+    myGrades:["Nilai Saya","Nilai pribadi dan hasil semester"],
+    studentHome:["Beranda Saya","Ringkasan perkembangan akademik pribadi"],
+    studentProgress:["Grafik Perkembangan","Tren nilai dari semester ke semester"],
+    studentAnalysis:["Analisis Saya","Kekuatan dan area yang perlu ditingkatkan"],
+    studentCompare:["Perbandingan Kelas","Nilai saya dibanding rata-rata kelas"],
+    studentRank:["Ranking Saya","Riwayat posisi ranking setiap semester"]
+  }[page]||[page,""];
   $("pageTitle").textContent=meta[0];$("pageSubtitle").textContent=meta[1];
-  if(page==="records")renderTable();if(page==="pulse")renderPulse("pulseGrid");if(page==="students")renderStudentList();if(page==="subjects")renderSubjects();if(page==="settings"){renderSettings();renderStudentAccess();}if(page==="myGrades")renderAllStudentAnalytics();
+  if(page==="records")renderTable();
+  if(page==="pulse")renderPulse("pulseGrid");
+  if(page==="students")renderStudentList();
+  if(page==="subjects")renderSubjects();
+  if(page==="settings"){renderSettings();renderStudentAccess();}
+  if(page==="myGrades")renderMyGrades();
+  if(page==="studentHome")renderStudentHome();
+  if(page==="studentProgress")setTimeout(renderStudentProgress,0);
+  if(page==="studentAnalysis")renderStudentAnalysis();
+  if(page==="studentCompare")renderStudentCompare();
+  if(page==="studentRank")renderStudentRank();
 }
-
 
 function setDataStatus(type,text){
   const el=$("dataStatusBanner");
@@ -176,7 +198,7 @@ async function reloadData(){
       studentSummaries=summarySnap.docs.map(d=>({id:d.id,...d.data()}));
       ensureSubjectObjects();setSync("Terhubung");
       setDataStatus(records.length?"success":"warn",records.length?"Data siswa berhasil dimuat.":"Belum ada data nilai yang terhubung dengan NIS akun ini.");
-      renderMyGrades();
+      renderAllStudentAnalytics();
     }else{
       const [recordSnap,summarySnap]=await Promise.all([
         getDocs(collection(db,"records")),
@@ -247,27 +269,72 @@ function updateFilters(){
   if([...$("semesterFilter").options].some(o=>o.value===oldS))$("semesterFilter").value=oldS;
   if([...$("classFilter").options].some(o=>o.value===oldC))$("classFilter").value=oldC;
 }
-$("semesterFilter").onchange=renderDashboard;$("classFilter").onchange=renderDashboard;
+function renderAdminFilteredViews(){
+  if(currentProfile?.role!=="admin")return;
+  renderDashboard();renderPulse("pulseGrid");renderStudentList();renderSubjects();renderTable();
+}
+$("semesterFilter").onchange=renderAdminFilteredViews;
+$("classFilter").onchange=renderAdminFilteredViews;
 function filtered(){
   let d=[...records],s=$("semesterFilter").value,c=$("classFilter").value;
   if(s&&s!=="ALL")d=d.filter(r=>r.semester===s);if(c&&c!=="ALL")d=d.filter(r=>r.kelas===c);return d;
 }
 function renderAll(){updateFilters();renderDashboard();renderPulse("pulseGrid");renderStudentList();renderSubjects();renderSettings();renderTable()}
 function renderDashboard(){
-  const d=filtered(),g=grouped(records),gf=grouped(d),gs=[...g.values()],total=gs.length||1;
-  $("kpiStudents").textContent=gf.size;$("kpiAverage").textContent=fmt(avg(d.map(rowAvg)));
-  const counts={Meningkat:0,Dipantau:0,Perhatian:0};gs.forEach(x=>{const s=status(x)[1];if(counts[s]!==undefined)counts[s]++});
-  $("kpiUp").textContent=Math.round(counts.Meningkat/total*100)+"%";$("kpiUpCount").textContent=counts.Meningkat+" siswa";
-  $("kpiWatch").textContent=Math.round(counts.Dipantau/total*100)+"%";$("kpiWatchCount").textContent=counts.Dipantau+" siswa";
-  $("kpiAlert").textContent=Math.round(counts.Perhatian/total*100)+"%";$("kpiAlertCount").textContent=counts.Perhatian+" siswa";
-  const sems=uniq(records.map(r=>r.semester)).sort((a,b)=>semesterRank(a)-semesterRank(b)),vals=sems.map(s=>avg(records.filter(r=>r.semester===s).map(rowAvg)));
-  const dAvg=vals.length>1?vals.at(-1)-vals.at(-2):0;$("kpiAverageDelta").textContent=vals.length>1?`${dAvg>=0?"↑":"↓"} ${fmt(Math.abs(dAvg))} dari semester lalu`:"Belum ada tren";
-  chart("trend","trendChart",{type:"line",data:{labels:sems,datasets:[{label:"Rata-rata",data:vals,tension:.35,fill:true}]},options:{plugins:{legend:{display:false}},scales:{y:{suggestedMin:0,suggestedMax:100}}}});
-  const changes=subjectKeys().map(s=>{const per=sems.map(sm=>avg(records.filter(r=>r.semester===sm).map(r=>r.scores?.[s])));return{s,d:per.length>1?per.at(-1)-per.at(-2):0}});
-  $("bestSubjects").innerHTML=changes.filter(x=>x.d>0).sort((a,b)=>b.d-a.d).slice(0,5).map(x=>metricSubject(x,true)).join("")||'<div class="empty">Belum ada peningkatan.</div>';
-  $("weakSubjects").innerHTML=changes.filter(x=>x.d<0).sort((a,b)=>a.d-b.d).slice(0,5).map(x=>metricSubject(x,false)).join("")||'<div class="empty">Tidak ada penurunan.</div>';
-  const growth=[];g.forEach((gr,k)=>{const t=trend(gr);if(t.length>1)growth.push({k,n:t.at(-1).nama,c:t.at(-1).kelas,v:rowAvg(t.at(-1))-rowAvg(t[0])})});growth.sort((a,b)=>b.v-a.v);
-  $("improvedStudents").innerHTML=growth.slice(0,5).map((x,i)=>`<div class="metric-row"><div><b>${i+1}. ${escapeHtml(x.n)}</b><small>Kelas ${escapeHtml(x.c||"-")}</small></div><span class="${x.v>=0?"up":"down"}">${x.v>=0?"+":""}${fmt(x.v)}</span></div>`).join("")||'<div class="empty">Butuh minimal 2 semester.</div>';
+  const d=filtered();
+  const selectedSemester=$("semesterFilter").value;
+  const selectedClass=$("classFilter").value;
+  $("kpiStudents").textContent=grouped(d).size;
+  $("kpiAverage").textContent=fmt(avg(d.map(rowAvg)));
+
+  let base=records.filter(r=>!selectedClass||selectedClass==="ALL"||r.kelas===selectedClass);
+  const allSems=uniq(base.map(r=>r.semester)).sort((a,b)=>semesterRank(a)-semesterRank(b));
+  const currentSem=(selectedSemester&&selectedSemester!=="ALL")?selectedSemester:allSems.at(-1);
+  const currentIndex=allSems.indexOf(currentSem);
+  const previousSem=currentIndex>0?allSems[currentIndex-1]:null;
+  const currentRows=currentSem?base.filter(r=>r.semester===currentSem):base;
+  const prevRows=previousSem?base.filter(r=>r.semester===previousSem):[];
+  const prevByStudent=new Map(prevRows.map(r=>[studentKey(r),r]));
+
+  let up=0,watch=0,alert=0;
+  currentRows.forEach(r=>{
+    const prev=prevByStudent.get(studentKey(r));if(!prev)return;
+    const de=rowAvg(r)-rowAvg(prev);
+    if(de>=3)up++;else if(de<=-3)watch++;
+  });
+  if(currentIndex>=2){
+    const olderSem=allSems[currentIndex-2];
+    const olderByStudent=new Map(base.filter(r=>r.semester===olderSem).map(r=>[studentKey(r),r]));
+    currentRows.forEach(r=>{
+      const p=prevByStudent.get(studentKey(r)),o=olderByStudent.get(studentKey(r));
+      if(p&&o&&rowAvg(p)<rowAvg(o)-2&&rowAvg(r)<rowAvg(p)-2)alert++;
+    });
+  }
+  const n=currentRows.length||1;
+  $("kpiUp").textContent=Math.round(up/n*100)+"%";$("kpiUpCount").textContent=up+" siswa";
+  $("kpiWatch").textContent=Math.round(watch/n*100)+"%";$("kpiWatchCount").textContent=watch+" siswa";
+  $("kpiAlert").textContent=Math.round(alert/n*100)+"%";$("kpiAlertCount").textContent=alert+" siswa";
+
+  const currentAvg=avg(currentRows.map(rowAvg)),prevAvg=avg(prevRows.map(rowAvg));
+  const dAvg=previousSem?currentAvg-prevAvg:0;
+  $("kpiAverageDelta").textContent=previousSem?`${dAvg>=0?"↑":"↓"} ${fmt(Math.abs(dAvg))} dari ${previousSem}`:"Belum ada semester pembanding";
+
+  const chartSems=(selectedSemester&&selectedSemester!=="ALL")?[selectedSemester]:allSems;
+  const vals=chartSems.map(sm=>avg(base.filter(r=>r.semester===sm).map(rowAvg)));
+  chart("trend","trendChart",{type:"line",data:{labels:chartSems,datasets:[{label:"Rata-rata",data:vals,tension:.35,fill:true}]},options:{plugins:{legend:{display:false}},scales:{y:{suggestedMin:0,suggestedMax:100}}}});
+
+  const changes=subjectKeys(currentRows).map(sub=>{
+    const now=avg(currentRows.map(r=>r.scores?.[sub]));
+    const before=previousSem?avg(prevRows.map(r=>r.scores?.[sub])):now;
+    return{s:sub,d:now-before};
+  });
+  $("bestSubjects").innerHTML=changes.filter(x=>x.d>0).sort((a,b)=>b.d-a.d).slice(0,5).map(x=>metricSubject(x,true)).join("")||'<div class="empty">Belum ada peningkatan pada semester terpilih.</div>';
+  $("weakSubjects").innerHTML=changes.filter(x=>x.d<0).sort((a,b)=>a.d-b.d).slice(0,5).map(x=>metricSubject(x,false)).join("")||'<div class="empty">Tidak ada penurunan pada semester terpilih.</div>';
+
+  const growth=[];
+  currentRows.forEach(r=>{const prev=prevByStudent.get(studentKey(r));if(prev)growth.push({n:r.nama,c:r.kelas,v:rowAvg(r)-rowAvg(prev)})});
+  growth.sort((a,b)=>b.v-a.v);
+  $("improvedStudents").innerHTML=growth.slice(0,5).map((x,i)=>`<div class="metric-row"><div><b>${i+1}. ${escapeHtml(x.n)}</b><small>Kelas ${escapeHtml(x.c||"-")}</small></div><span class="${x.v>=0?"up":"down"}">${x.v>=0?"+":""}${fmt(x.v)}</span></div>`).join("")||'<div class="empty">Butuh semester pembanding.</div>';
   renderPulse("pulsePreview",12);
 }
 function metricSubject(x,pos){return`<div class="metric-row"><b>${escapeHtml(subjectLabel(x.s,true))}</b><span class="${pos?"up":"down"}">${pos?"+":""}${fmt(x.d)}</span></div>`}
@@ -280,7 +347,9 @@ function renderPulse(target="pulseGrid",limit=null){
 
 $("studentSearch").oninput=renderStudentList;
 function renderStudentList(){
-  const q=($("studentSearch").value||"").toLowerCase(),arr=[];grouped(records).forEach((g,k)=>{const l=trend(g).at(-1);if((l.nama+" "+l.nis).toLowerCase().includes(q))arr.push({k,l})});arr.sort((a,b)=>a.l.nama.localeCompare(b.l.nama));
+  const q=($("studentSearch").value||"").toLowerCase(),arr=[];
+  const scope=currentProfile?.role==="admin"?filtered():records;
+  grouped(scope).forEach((g,k)=>{const l=trend(g).at(-1);if((l.nama+" "+l.nis).toLowerCase().includes(q))arr.push({k,l})});arr.sort((a,b)=>a.l.nama.localeCompare(b.l.nama));
   $("studentList").innerHTML=arr.map(x=>`<div class="student-item ${selectedStudent===x.k?"active":""}" data-key="${encodeURIComponent(x.k)}"><b>${escapeHtml(x.l.nama)}</b><small>${escapeHtml(x.l.nis||"-")} · Kelas ${escapeHtml(x.l.kelas||"-")}</small></div>`).join("");
   $("studentList").querySelectorAll(".student-item").forEach(el=>el.onclick=()=>{selectedStudent=decodeURIComponent(el.dataset.key);renderStudentList();renderStudentProfile()});
 }
@@ -302,14 +371,20 @@ function renderStudentChart(){
 
 $("subjectSelect").onchange=renderSubjectChart;
 function renderSubjects(){
-  const ss=subjectKeys(),old=$("subjectSelect").value;$("subjectSelect").innerHTML=ss.map(s=>`<option value="${escapeAttr(s)}">${escapeHtml(subjectLabel(s))}</option>`).join("");if(ss.includes(old))$("subjectSelect").value=old;renderSubjectChart()
+  const scope=filtered();
+  const ss=subjectKeys(scope),old=$("subjectSelect").value;
+  $("subjectSelect").innerHTML=ss.map(sub=>`<option value="${escapeAttr(sub)}">${escapeHtml(subjectLabel(sub))}</option>`).join("");
+  if(ss.includes(old))$("subjectSelect").value=old;
+  renderSubjectChart();
 }
 function renderSubjectChart(){
-  const s=$("subjectSelect").value;if(!s)return;const sems=uniq(records.map(r=>r.semester)).sort((a,b)=>semesterRank(a)-semesterRank(b)),vals=sems.map(sm=>avg(records.filter(r=>r.semester===sm).map(r=>r.scores?.[s])));
-  chart("subject","subjectChart",{type:"line",data:{labels:sems,datasets:[{label:subjectLabel(s),data:vals,tension:.35,fill:true}]},options:{scales:{y:{suggestedMin:0,suggestedMax:100}}}});
-  $("subjectStats").innerHTML=`<div><span>Nilai Terakhir</span><b>${fmt(vals.at(-1))}</b></div><div><span>Tertinggi</span><b>${vals.length?fmt(Math.max(...vals)):"-"}</b></div><div><span>Terendah</span><b>${vals.length?fmt(Math.min(...vals)):"-"}</b></div><div><span>Perubahan Total</span><b>${vals.length>1?fmt(vals.at(-1)-vals[0]):"-"}</b></div>`;
+  const sub=$("subjectSelect").value;if(!sub)return;
+  const scope=filtered(),selectedSemester=$("semesterFilter").value;
+  const sems=(selectedSemester&&selectedSemester!=="ALL")?[selectedSemester]:uniq(scope.map(r=>r.semester)).sort((a,b)=>semesterRank(a)-semesterRank(b));
+  const vals=sems.map(sm=>avg(scope.filter(r=>r.semester===sm).map(r=>r.scores?.[sub])));
+  chart("subject","subjectChart",{type:"line",data:{labels:sems,datasets:[{label:subjectLabel(sub),data:vals,tension:.35,fill:true}]},options:{scales:{y:{suggestedMin:0,suggestedMax:100}}}});
+  $("subjectStats").innerHTML=`<div><span>Nilai Terpilih</span><b>${vals.length?fmt(vals.at(-1)):"-"}</b></div><div><span>Tertinggi</span><b>${vals.length?fmt(Math.max(...vals)):"-"}</b></div><div><span>Terendah</span><b>${vals.length?fmt(Math.min(...vals)):"-"}</b></div><div><span>Jumlah Semester</span><b>${vals.length}</b></div>`;
 }
-
 function renderSettings(){
   ensureSubjectObjects();const sorted=[...subjects].sort((a,b)=>(a.order??999)-(b.order??999));
   $("subjectSettingsTable").querySelector("tbody").innerHTML=sorted.map(s=>`<tr data-id="${escapeAttr(s.id||s.key)}"><td><input class="settings-input order-input" type="number" value="${Number(s.order??999)}"></td><td>${escapeHtml(s.key)}</td><td><input class="settings-input name-input" value="${escapeAttr(s.name||titleCase(s.key))}"></td><td><input class="settings-input short-input" value="${escapeAttr(s.short||s.name||titleCase(s.key))}"></td><td><select class="settings-input active-input"><option value="true" ${s.active!==false?"selected":""}>Aktif</option><option value="false" ${s.active===false?"selected":""}>Nonaktif</option></select></td><td><button class="btn secondary save-subject">Simpan</button></td></tr>`).join("");
@@ -322,9 +397,10 @@ function renderSettings(){
 }
 
 function renderTable(){
-  const ss=subjectKeys(records,false),headers=["nis","nama","kelas","semester",...ss];
+  const scope=currentProfile?.role==="admin"?filtered():records;
+  const ss=subjectKeys(scope,false),headers=["nis","nama","kelas","semester",...ss];
   $("recordsTable").querySelector("thead").innerHTML="<tr>"+headers.map(h=>`<th>${escapeHtml(CORE.includes(h)?titleCase(h):subjectLabel(h,true))}</th>`).join("")+"</tr>";
-  $("recordsTable").querySelector("tbody").innerHTML=records.map(r=>"<tr>"+headers.map(h=>`<td>${escapeHtml(CORE.includes(h)?r[h]??"":r.scores?.[h]??"")}</td>`).join("")+"</tr>").join("");
+  $("recordsTable").querySelector("tbody").innerHTML=scope.map(r=>"<tr>"+headers.map(h=>`<td>${escapeHtml(CORE.includes(h)?r[h]??"":r.scores?.[h]??"")}</td>`).join("")+"</tr>").join("");
 }
 $("refreshBtn").onclick=reloadData;
 $("deleteAllBtn").onclick=async()=>{
@@ -546,8 +622,9 @@ function renderStudentRank(){
   }).join("")||'<div class="empty">Belum ada riwayat semester.</div>'}</div>`;
 }
 function renderAllStudentAnalytics(){
+  if(currentProfile?.role!=="student")return;
   renderMyGrades();renderStudentHome();renderStudentAnalysis();renderStudentCompare();renderStudentRank();
-  setTimeout(renderStudentProgress,0);
+  setTimeout(()=>{if(!$("studentProgressPage").classList.contains("hidden"))renderStudentProgress();},0);
 }
 $("studentChartMetric")?.addEventListener("change",renderStudentProgress);
 $("studentCompareSemester")?.addEventListener("change",renderStudentCompare);

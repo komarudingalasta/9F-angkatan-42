@@ -234,3 +234,10 @@ Akun siswa tetap hanya dapat membaca data miliknya sendiri, tetapi kini memiliki
 - Keluar
 
 Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya memakai nilai agregat/rata-rata kelas.
+
+
+## V12 Bug Fixes
+- Sesi siswa tetap aktif setelah refresh.
+- Semua menu siswa dirender saat dibuka.
+- Filter semester/kelas admin diterapkan ke Dashboard, Peta Perkembangan, Daftar Siswa, Analisis Mapel, dan Data Nilai.
+- Nilai dashboard semester terpilih berasal dari semester tersebut, dengan perbandingan ke semester sebelumnya.

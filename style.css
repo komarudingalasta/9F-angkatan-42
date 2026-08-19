@@ -166,3 +166,7 @@ body.auth-locked #sidebarToggle{
 .analysis-list{display:grid;gap:8px}.analysis-item{display:grid;grid-template-columns:1fr auto;gap:10px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:11px}
 @media(max-width:800px){.student-kpi-grid{grid-template-columns:repeat(2,1fr)}.student-insight-grid{grid-template-columns:1fr}.student-chart-wrap{min-height:280px}}
 @media(max-width:440px){.student-kpi-grid{grid-template-columns:1fr 1fr}.student-kpi b{font-size:18px}.rank-row{grid-template-columns:1fr auto}.rank-row small{grid-column:1/-1}}
+
+/* V12 */
+.student-only.nav{white-space:normal}
+@media(max-width:900px){.student-only.nav span{display:inline!important}}
