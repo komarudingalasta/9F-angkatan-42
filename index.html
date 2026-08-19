@@ -27,24 +27,20 @@
     <div class="login-card">
       <div class="logo lg">PK</div>
       <h1>PakKom Student Analytics</h1>
-      <p id="loginDescription">Masuk sebagai administrator atau siswa.</p>
-      <div class="login-tabs">
-        <button type="button" class="login-tab active" data-role="admin">Admin</button>
-        <button type="button" class="login-tab" data-role="student">Siswa</button>
-      </div>
-      <form id="loginForm">
-        <label id="loginIdentifierLabel">Email Admin
-          <input id="email" type="text" autocomplete="username" required placeholder="admin@sekolah.sch.id">
+      <p id="loginDescription">Masukkan email admin atau NIS siswa. Sistem akan mengenali akses secara otomatis.</p>
+<form id="loginForm">
+        <label id="loginIdentifierLabel">Email Admin / NIS Siswa
+          <input id="email" type="text" autocomplete="username" required placeholder="Email admin atau NIS siswa">
         </label>
-        <label>PIN / Password
+        <label>Password
           <div class="password-wrap">
             <input id="password" type="password" autocomplete="current-password" required placeholder="Masukkan password">
             <button type="button" id="togglePassword" class="icon-btn">👁</button>
           </div>
         </label>
         <button class="btn primary full" type="submit">Masuk</button>
-        <button class="btn link full" type="button" id="resetPassword">Lupa password admin?</button>
-        <div id="loginHint" class="login-hint">Admin menggunakan email Firebase. Siswa menggunakan NIS + PIN.</div>
+        <button class="btn link full" type="button" id="resetPassword">Lupa password?</button>
+        <div id="loginHint" class="login-hint">Admin: email + password Firebase · Siswa: NIS + password default 123456.</div>
         <div id="loginMessage" class="message"></div>
       </form>
     </div>
@@ -275,7 +271,7 @@
           <div class="student-chart-controls">
             <select id="studentChartMetric"><option value="average">Rata-rata Rapor</option></select>
           </div>
-          <div class="chart-wrap student-chart-wrap"><canvas id="studentProgressChart"></canvas></div>
+          <div class="chart-wrap student-chart-wrap"><canvas id="studentProgressChart"></canvas></div><div class="chart-note">Angka pada setiap titik menunjukkan nilai semester tersebut.</div>
         </div>
       </section>
 

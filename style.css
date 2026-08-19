@@ -170,3 +170,7 @@ body.auth-locked #sidebarToggle{
 /* V12 */
 .student-only.nav{white-space:normal}
 @media(max-width:900px){.student-only.nav span{display:inline!important}}
+
+/* V13 */
+.login-tabs{display:none!important}
+.chart-note{font-size:9px;color:var(--muted);text-align:center;margin-top:7px}

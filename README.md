@@ -241,3 +241,12 @@ Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya 
 - Semua menu siswa dirender saat dibuka.
 - Filter semester/kelas admin diterapkan ke Dashboard, Peta Perkembangan, Daftar Siswa, Analisis Mapel, dan Data Nilai.
 - Nilai dashboard semester terpilih berasal dari semester tersebut, dengan perbandingan ke semester sebelumnya.
+
+
+## V13
+- Login Admin/Siswa digabung menjadi satu form.
+- Email mengandung @ = admin; input tanpa @ = NIS siswa.
+- Auth persistence dipasang sebelum listener auth sehingga sesi siswa bertahan setelah refresh.
+- Setelah refresh role dibaca dari profil Firestore.
+- Siswa masuk ke Beranda Saya setelah autentikasi.
+- Semua grafik garis menampilkan angka nilai pada setiap titik.

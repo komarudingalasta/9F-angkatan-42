@@ -13,7 +13,7 @@ import {
 const $=id=>document.getElementById(id);
 document.body.classList.add("auth-locked");
 const CORE=["nis","nama","kelas","semester"];
-let app,auth,db,records=[],subjects=[],pendingFileRows=[],pendingHeaders=[],selectedStudent=null,charts={},currentProfile=null,currentLoginRole="admin",studentSummaries=[];
+let app,auth,db,records=[],subjects=[],pendingFileRows=[],pendingHeaders=[],selectedStudent=null,charts={},currentProfile=null,currentLoginRole=null,studentSummaries=[];
 
 function configReady(){
   return firebaseConfig && firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("PASTE_") &&
@@ -24,8 +24,9 @@ if(!configReady()){
 }else{
   try{
     app=initializeApp(firebaseConfig); auth=getAuth(app); db=getFirestore(app);
-    setPersistence(auth,browserLocalPersistence).catch(()=>{});
-    onAuthStateChanged(auth, async user=>{
+    (async()=>{
+      try{await setPersistence(auth,browserLocalPersistence)}catch(e){console.warn("Persistence fallback",e)}
+      onAuthStateChanged(auth, async user=>{
       if(user){
         try{
           const profileSnap=await getDoc(doc(db,"users",user.uid));
@@ -36,7 +37,6 @@ if(!configReady()){
             return setMessage("loginMessage","Akun belum memiliki profil akses di Firestore.",true);
           }
           currentLoginRole=currentProfile.role;
-          document.querySelectorAll(".login-tab").forEach(b=>b.classList.toggle("active",b.dataset.role===currentLoginRole));
           document.body.classList.remove("auth-locked");
           $("loginScreen").classList.add("hidden");$("setupScreen").classList.add("hidden");$("app").classList.remove("hidden");
           $("userEmail").textContent=currentProfile.role==="student"?`NIS ${currentProfile.nis}`:(user.email||"Admin");
@@ -57,7 +57,8 @@ if(!configReady()){
         document.querySelector(".sidebar")?.classList.remove("open");
         $("loginScreen").classList.remove("hidden");
       }
-    });
+      });
+    })();
   }catch(e){
     $("setupScreen").classList.remove("hidden");
     $("setupScreen").querySelector("p").textContent="Konfigurasi Firebase tidak valid: "+e.message;
@@ -65,24 +66,7 @@ if(!configReady()){
 }
 
 
-document.querySelectorAll(".login-tab").forEach(btn=>btn.onclick=()=>{
-  currentLoginRole=btn.dataset.role;
-  document.querySelectorAll(".login-tab").forEach(b=>b.classList.toggle("active",b===btn));
-  if(currentLoginRole==="student"){
-    $("loginIdentifierLabel").firstChild.textContent="NIS Siswa ";
-    $("email").type="text";
-    $("email").placeholder="Masukkan NIS";
-    $("resetPassword").classList.add("hidden");
-    $("loginHint").textContent="Siswa masuk menggunakan NIS dan PIN.";
-  }else{
-    $("loginIdentifierLabel").firstChild.textContent="Email Admin ";
-    $("email").type="email";
-    $("email").placeholder="admin@sekolah.sch.id";
-    $("resetPassword").classList.remove("hidden");
-    $("loginHint").textContent="Admin menggunakan email Firebase.";
-  }
-  $("email").value="";$("password").value="";setMessage("loginMessage","");
-});
+
 
 function studentInternalEmail(nis){
   return `${String(nis).trim().toLowerCase().replace(/[^a-z0-9]/g,"")}@siswa.pakkom.local`;
@@ -94,24 +78,34 @@ function applyRoleUI(){
   document.querySelectorAll(".student-only").forEach(el=>el.classList.toggle("hidden",!isStudent));
   $("semesterFilter").classList.toggle("hidden",isStudent);
   $("classFilter").classList.toggle("hidden",isStudent);
-  if(isStudent)showPage("myGrades"); else showPage("dashboard");
+  if(isStudent)showPage("studentHome"); else showPage("dashboard");
 }
 
 $("loginForm").addEventListener("submit",async e=>{
-  e.preventDefault();setMessage("loginMessage","Memproses...");
+  e.preventDefault();
+  const identifier=$("email").value.trim();
+  const password=$("password").value;
+  if(!identifier||!password)return setMessage("loginMessage","Masukkan email/NIS dan password.",true);
+  const authEmail=identifier.includes("@")?identifier:studentInternalEmail(identifier);
+  setMessage("loginMessage","Memproses...");
   try{
-    const loginId=$("email").value.trim();
-    const authEmail=currentLoginRole==="student"?studentInternalEmail(loginId):loginId;
-    await signInWithEmailAndPassword(auth,authEmail,$("password").value);
+    await signInWithEmailAndPassword(auth,authEmail,password);
     setMessage("loginMessage","");
+  }catch(err){
+    setMessage("loginMessage",friendlyAuthError(err),true);
   }
-  catch(err){setMessage("loginMessage",friendlyAuthError(err),true)}
 });
 $("togglePassword").onclick=()=>{$("password").type=$("password").type==="password"?"text":"password"};
 $("resetPassword").onclick=async()=>{
-  if(currentLoginRole!=="admin")return;
-  const email=$("email").value.trim();if(!email)return setMessage("loginMessage","Masukkan email admin terlebih dahulu.",true);
-  try{await sendPasswordResetEmail(auth,email);setMessage("loginMessage","Email reset password telah dikirim.")}catch(e){setMessage("loginMessage",friendlyAuthError(e),true)}
+  const identifier=$("email").value.trim();
+  if(!identifier)return setMessage("loginMessage","Masukkan email admin atau NIS siswa terlebih dahulu.",true);
+  if(!identifier.includes("@")){
+    return setMessage("loginMessage","Password siswa direset oleh admin. Password awal siswa adalah 123456.",true);
+  }
+  try{
+    await sendPasswordResetEmail(auth,identifier);
+    setMessage("loginMessage","Email reset password telah dikirim.");
+  }catch(e){setMessage("loginMessage",friendlyAuthError(e),true)}
 };
 $("logoutBtn").onclick=async()=>{
   document.body.classList.add("auth-locked");
@@ -260,7 +254,38 @@ function status(g){
   if(t.length>=3 && rowAvg(t.at(-2))<rowAvg(t.at(-3))-2 && rowAvg(t.at(-1))<rowAvg(t.at(-2))-2)return["🔴","Perhatian"];
   if(d>=3)return["🟢","Meningkat"];if(d<=-3)return["🟡","Dipantau"];return["🔵","Stabil"];
 }
-function chart(name,id,cfg){if(charts[name])charts[name].destroy();charts[name]=new Chart($(id),cfg)}
+function chart(name,id,cfg){
+  if(charts[name])charts[name].destroy();
+  cfg.options=cfg.options||{};
+  cfg.options.layout=cfg.options.layout||{};
+  cfg.options.layout.padding={...(cfg.options.layout.padding||{}),top:20};
+  charts[name]=new Chart($(id),cfg);
+}
+
+const pointValueLabelsPlugin={
+  id:"pointValueLabels",
+  afterDatasetsDraw(chart){
+    if(chart.config.type!=="line")return;
+    const ctx=chart.ctx;
+    ctx.save();
+    ctx.font="600 10px system-ui, sans-serif";
+    ctx.textAlign="center";
+    ctx.textBaseline="bottom";
+    ctx.fillStyle="#32445f";
+    chart.data.datasets.forEach((dataset,di)=>{
+      const meta=chart.getDatasetMeta(di);
+      if(meta.hidden)return;
+      meta.data.forEach((point,i)=>{
+        const v=Number(dataset.data[i]);
+        if(Number.isFinite(v))ctx.fillText(fmt(v),point.x,point.y-7);
+      });
+    });
+    ctx.restore();
+  }
+};
+if(typeof Chart!=="undefined"&&!Chart.registry.plugins.get("pointValueLabels")){
+  Chart.register(pointValueLabelsPlugin);
+}
 
 function updateFilters(){
   const oldS=$("semesterFilter").value||"ALL",oldC=$("classFilter").value||"ALL";
@@ -588,7 +613,7 @@ function renderStudentProgress(){
   const canvas=$("studentProgressChart");
   if(studentProgressChartInstance)studentProgressChartInstance.destroy();
   if(typeof Chart==="undefined"){canvas.parentElement.innerHTML='<div class="empty">Komponen grafik belum termuat.</div>';return}
-  studentProgressChartInstance=new Chart(canvas,{type:"line",data:{labels,datasets:[{label:metric==="average"?"Rata-rata Rapor":subjectLabel(metric),data:values,tension:.25,fill:false}]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{suggestedMin:0,suggestedMax:100}},plugins:{legend:{display:true}}}});
+  studentProgressChartInstance=new Chart(canvas,{type:"line",data:{labels,datasets:[{label:metric==="average"?"Rata-rata Rapor":subjectLabel(metric),data:values,tension:.25,fill:false}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:20}},scales:{y:{suggestedMin:0,suggestedMax:100}},plugins:{legend:{display:true}}}});
 }
 function renderStudentAnalysis(){
   const rows=myOrderedRecords(), latest=rows.at(-1), prev=rows.at(-2);
