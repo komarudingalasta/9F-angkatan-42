@@ -312,3 +312,16 @@ Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya 
 - Desktop tetap menggunakan tabel.
 - Rata-rata Gabungan sekarang dihitung dari seluruh nilai mata pelajaran yang tersedia dari semester pertama sampai semester terakhir.
 - Rentang semester Rata-rata Gabungan ditampilkan di kartu ringkasan.
+
+
+## V18 — Attendance Core
+- Kehadiran admin berfungsi untuk input harian dan koreksi.
+- Tombol Tandai Semua Hadir.
+- Satu siswa + satu tanggal = satu dokumen kehadiran, sehingga tidak membuat data ganda.
+- Upload Excel/CSV: NIS, Nama, Tanggal, Status, Keterangan.
+- Preview dan validasi sebelum simpan.
+- Konflik data: Lewati atau Timpa.
+- Approval pengajuan Izin/Sakit otomatis membuat data attendance.
+- Rekap H/S/I/A dan persentase kehadiran per siswa.
+- Sumber data disimpan: Manual, Upload, Pengajuan.
+- Kamera Absensi belum diaktifkan di V18.

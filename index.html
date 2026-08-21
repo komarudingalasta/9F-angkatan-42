@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#174b9e">
   <title>PakKom Student Analytics</title>
-  <link rel="stylesheet" href="style.css?v=17.5">
+  <link rel="stylesheet" href="style.css?v=18">
 </head>
 <body>
   <section id="setupScreen" class="center-screen hidden auth-screen">
@@ -340,7 +340,81 @@
     </div>
     <div class="attendance-grid"><div class="card v15-section"><span class="eyebrow">KALENDER</span><h3>Kehadiran Bulanan</h3><div id="attCalendar" class="attendance-calendar"></div><div class="calendar-legend"><span>● Hadir</span><span>● Sakit</span><span>● Izin</span><span>● Alpa</span></div></div><div class="card v15-section"><span class="eyebrow">RIWAYAT</span><h3>Riwayat Ketidakhadiran</h3><div id="attHistory" class="empty">Belum ada data kehadiran.</div></div></div><div class="card v15-section"><span class="eyebrow">PENGAJUAN</span><h3>Izin & Sakit</h3><div id="leaveHistory" class="empty">Belum ada pengajuan.</div></div></section>
 
-<section id="attendancePage" class="page hidden"><div class="v15-hero"><div><span class="eyebrow">KEHADIRAN</span><h2>Kehadiran Kelas</h2><p>Absensi harian, pengajuan, upload, dan koreksi.</p></div></div><div class="v15-actions"><button class="action-card" id="camBtn"><b>📷 Kamera Absensi</b><span>Mode kamera absensi</span></button><button class="action-card" id="uploadAttBtn"><b>⇧ Upload Kehadiran</b><span>Import Excel harian/bulanan</span></button><button class="action-card" id="manualAttBtn"><b>✎ Input Manual</b><span>Tambah atau koreksi data</span></button></div><div class="card v15-section"><span class="eyebrow">PENGAJUAN</span><h3>Menunggu Persetujuan</h3><div id="adminLeaves" class="empty">Belum ada pengajuan.</div></div></section>
+
+<section id="attendancePage" class="page hidden">
+  <div class="v18-head">
+    <div>
+      <span class="eyebrow">KEHADIRAN</span>
+      <h2>Kehadiran Kelas</h2>
+      <p>Isi harian, upload data, koreksi, pengajuan, dan rekap.</p>
+    </div>
+    <div class="v18-date-wrap">
+      <label>Tanggal
+        <input id="attendanceDate" type="date">
+      </label>
+    </div>
+  </div>
+
+  <div class="v18-kpis">
+    <article><span>Hadir</span><strong id="adminAttH">0</strong></article>
+    <article><span>Sakit</span><strong id="adminAttS">0</strong></article>
+    <article><span>Izin</span><strong id="adminAttI">0</strong></article>
+    <article><span>Alpa</span><strong id="adminAttA">0</strong></article>
+    <article><span>Belum Tercatat</span><strong id="adminAttU">0</strong></article>
+  </div>
+
+  <div class="v18-actions">
+    <button id="openDailyAttendanceBtn" class="btn primary">✓ Isi Kehadiran Hari Ini</button>
+    <button id="openAttendanceUploadBtn" class="btn">⇧ Upload Excel</button>
+    <button id="openLeaveRequestsBtn" class="btn">◎ Pengajuan <span id="pendingLeaveBadge">0</span></button>
+    <button id="openAttendanceRecapBtn" class="btn">▣ Rekap</button>
+  </div>
+
+  <section id="dailyAttendancePanel" class="card v18-panel">
+    <div class="section-head responsive">
+      <div><span class="eyebrow">HARIAN</span><h3>Daftar Kehadiran</h3><p>Pilih status untuk setiap siswa lalu simpan.</p></div>
+      <button id="markAllPresentBtn" class="btn small">Tandai Semua Hadir</button>
+    </div>
+    <div id="dailyAttendanceList" class="v18-att-list"></div>
+    <div class="v18-sticky-save">
+      <span id="dailyAttendanceMessage" class="message"></span>
+      <button id="saveDailyAttendanceBtn" class="btn primary">Simpan Kehadiran</button>
+    </div>
+  </section>
+
+  <section id="attendanceUploadPanel" class="card v18-panel hidden">
+    <div class="section-head responsive">
+      <div><span class="eyebrow">IMPORT</span><h3>Upload Kehadiran Excel</h3><p>Format: NIS, Nama, Tanggal, Status, Keterangan.</p></div>
+      <button id="downloadAttendanceTemplateBtn" class="btn small">Unduh Template</button>
+    </div>
+    <div class="upload-box compact-upload">
+      <input id="attendanceFileInput" type="file" accept=".xlsx,.xls,.csv">
+      <button id="parseAttendanceFileBtn" class="btn primary">Baca File</button>
+    </div>
+    <div id="attendanceUploadSummary" class="message"></div>
+    <div id="attendanceUploadPreview" class="v18-upload-preview"></div>
+    <div class="v18-upload-options">
+      <label><input type="radio" name="attendanceConflict" value="skip" checked> Lewati data yang sudah ada</label>
+      <label><input type="radio" name="attendanceConflict" value="overwrite"> Timpa data yang sudah ada</label>
+    </div>
+    <button id="saveAttendanceUploadBtn" class="btn primary" disabled>Simpan Hasil Upload</button>
+  </section>
+
+  <section id="leaveRequestsPanel" class="card v18-panel hidden">
+    <div class="section-head">
+      <div><span class="eyebrow">PENGAJUAN</span><h3>Izin / Sakit Menunggu</h3></div>
+    </div>
+    <div id="adminLeaveRequestsV18" class="v18-request-list"></div>
+  </section>
+
+  <section id="attendanceRecapPanel" class="card v18-panel hidden">
+    <div class="section-head responsive">
+      <div><span class="eyebrow">REKAP</span><h3>Rekap Kehadiran Siswa</h3></div>
+      <select id="attendanceRecapMonth"></select>
+    </div>
+    <div id="attendanceRecapTable" class="v18-table-wrap"></div>
+  </section>
+</section>
 
 <div id="leaveModal" class="modal hidden"><div class="modal-card"><div class="section-head"><h3>Ajukan Izin / Sakit</h3><button id="leaveClose" class="icon-btn">×</button></div><label>Jenis<select id="leaveType"><option>Sakit</option><option>Izin</option></select></label><label>Tanggal mulai<input id="leaveStart" type="date"></label><label>Tanggal selesai<input id="leaveEnd" type="date"></label><label>Keterangan<textarea id="leaveNote" rows="3"></textarea></label><button class="primary" id="leaveSubmit">Kirim Pengajuan</button><div id="leaveMsg"></div></div></div>
 </main>
@@ -348,7 +422,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script type="module" src="app.js?v=17.5"></script>
+  <script type="module" src="app.js?v=18"></script>
 <nav id="studentBottomNav" class="student-bottom-nav hidden">
 <button data-student-go="studentAcademicV15"><b>▥</b>Akademik</button>
 <button data-student-go="studentAttendanceV15"><b>✓</b>Kehadiran</button>

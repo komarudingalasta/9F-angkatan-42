@@ -685,3 +685,37 @@ body.student-mode #studentBottomNav{
     overflow:hidden!important;
   }
 }
+
+/* ===== V18 ATTENDANCE CORE ===== */
+.v18-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:14px}
+.v18-head h2{margin:4px 0}.v18-head p{margin:0;color:var(--muted)}
+.v18-date-wrap label{font-size:10px;font-weight:800;color:var(--muted)}
+.v18-date-wrap input{display:block;margin-top:5px}
+.v18-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+.v18-kpis article{background:#fff;border:1px solid var(--line);border-radius:15px;padding:14px}
+.v18-kpis span{display:block;font-size:9px;color:var(--muted)}
+.v18-kpis strong{display:block;font-size:23px;margin-top:5px}
+.v18-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:14px}
+.v18-actions .btn{min-height:44px}
+.v18-panel{padding:18px;margin-bottom:14px}
+.v18-att-list{display:grid;gap:8px}
+.v18-att-row{display:grid;grid-template-columns:minmax(0,1.7fr) .8fr 1.1fr;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px 11px;background:#fff}
+.v18-student b,.v18-student small{display:block}.v18-student small{font-size:9px;color:var(--muted);margin-top:2px}
+.v18-att-row select,.v18-att-row input{margin:0}
+.v18-sticky-save{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:13px;padding-top:12px;border-top:1px solid var(--line)}
+.v18-upload-preview{max-height:360px;overflow:auto;margin:10px 0}
+.v18-upload-options{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0;font-size:10px}
+.v18-request-list{display:grid;gap:9px}
+.v18-request{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;border:1px solid var(--line);border-radius:13px;padding:12px}
+.v18-request-actions{display:flex;gap:6px;align-items:center}
+.v18-table-wrap{overflow:auto}
+.v18-table{width:100%;border-collapse:collapse}.v18-table th,.v18-table td{padding:9px;border-bottom:1px solid var(--line);text-align:left}.v18-table th{font-size:9px;color:var(--muted)}
+.compact-upload{padding:12px}
+@media(max-width:900px){
+ .v18-kpis{grid-template-columns:repeat(2,1fr)}.v18-kpis article:last-child{grid-column:1/-1}
+ .v18-actions{grid-template-columns:1fr 1fr}.v18-att-row{grid-template-columns:1fr 1fr}.v18-att-row .v18-student{grid-column:1/-1}
+}
+@media(max-width:560px){
+ .v18-head{align-items:stretch;flex-direction:column}.v18-actions{grid-template-columns:1fr}.v18-sticky-save{align-items:stretch;flex-direction:column}.v18-sticky-save .btn{width:100%}
+ .v18-request{grid-template-columns:1fr}.v18-request-actions{justify-content:flex-start}
+}

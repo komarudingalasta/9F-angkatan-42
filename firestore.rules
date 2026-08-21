@@ -41,6 +41,26 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+
+    match /attendance/{attendanceId} {
+      allow read: if isAdmin()
+        || (isStudent() && resource.data.nis == myNis());
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /leaveRequests/{requestId} {
+      allow read: if isAdmin()
+        || (isStudent() && resource.data.nis == myNis());
+
+      allow create: if isStudent()
+        && request.resource.data.nis == myNis()
+        && request.resource.data.status == "Menunggu"
+        && (request.resource.data.type == "Sakit"
+            || request.resource.data.type == "Izin");
+
+      allow update, delete: if isAdmin();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

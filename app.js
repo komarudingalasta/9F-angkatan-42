@@ -5,10 +5,7 @@ import {
   sendPasswordResetEmail, setPersistence, browserLocalPersistence,
   createUserWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
-import {
-  getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc,
-  writeBatch, serverTimestamp, query, where, addDoc
-} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, writeBatch, serverTimestamp, query, where, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 const $=id=>document.getElementById(id);
 document.body.classList.add("auth-locked");
@@ -172,7 +169,7 @@ function showPage(page){
   if(page==="students")renderStudentList();
   if(page==="subjects")renderSubjects();
   if(page==="settings"){renderSettings();renderStudentAccess();}
-  if(page==="attendance")renderAdminAttendance();
+  if(page==="attendance")renderAttendanceV18();
   if(page==="studentAcademicV15"){
     try{requestAnimationFrame(()=>renderAcademicV15())}catch(e){console.error(e);target.innerHTML='<div class="card" style="padding:18px"><h3>Data akademik belum dapat ditampilkan</h3><p>Silakan muat ulang halaman atau hubungi admin.</p></div>'}
   }
@@ -949,19 +946,7 @@ async function renderAttendanceV15(){await loadAtt(true);$("attName").textConten
   if($("attSIA"))$("attSIA").textContent=`${s} / ${i} / ${a}`;
   if($("attRing"))$("attRing").style.setProperty("--att-rate",rate+"%");$("attHistory").innerHTML=attRows.length?attRows.map(x=>`<div class="metric-row"><div><b>${escapeHtml(x.date||"-")}</b></div><span class="badge">${escapeHtml(x.status||"-")}</span></div>`).join(""):'<div class="empty">Belum ada data kehadiran.</div>';renderAttendanceCalendar();$("leaveHistory").innerHTML=leaveRows.length?leaveRows.map(x=>`<div class="metric-row"><div><b>${escapeHtml(x.type)} · ${escapeHtml(x.startDate)}</b><small>${escapeHtml(x.note||"")}</small></div><span class="badge">${escapeHtml(x.status||"Menunggu")}</span></div>`).join(""):'<div class="empty">Belum ada pengajuan.</div>'}
 $("leaveBtn").onclick=()=>$("leaveModal").classList.remove("hidden");$("leaveClose").onclick=()=>$("leaveModal").classList.add("hidden");$("leaveSubmit").onclick=async()=>{let startDate=$("leaveStart").value;if(!startDate)return setMessage("leaveMsg","Tanggal wajib diisi.",true);try{await addDoc(collection(db,"leaveRequests"),{nis:String(currentProfile.nis),name:currentProfile.name||"",kelas:classNow(),type:$("leaveType").value,startDate,endDate:$("leaveEnd").value||startDate,note:$("leaveNote").value.trim(),status:"Menunggu",createdAt:new Date().toISOString()});setMessage("leaveMsg","Pengajuan berhasil dikirim.");setTimeout(()=>{$("leaveModal").classList.add("hidden");renderAttendanceV15()},400)}catch(e){setMessage("leaveMsg","Pengajuan belum dapat disimpan.",true)}}
-async function renderAdminAttendance(){await loadAtt(false);let p=leaveRows.filter(x=>!x.status||x.status==="Menunggu");$("adminLeaves").innerHTML=p.length?p.map(x=>`<div class="metric-row"><div><b>${escapeHtml(x.name||x.nis)} · ${escapeHtml(x.type)}</b><small>${escapeHtml(x.startDate)} · ${escapeHtml(x.note||"")}</small></div><span class="badge">Menunggu</span></div>`).join(""):'<div class="empty">Belum ada pengajuan.</div>'}
-$("camBtn").onclick=()=>alert("Kamera Absensi akan diaktifkan setelah modul kehadiran stabil.");$("uploadAttBtn").onclick=()=>alert("Upload Excel Kehadiran disiapkan untuk tahap berikutnya.");$("manualAttBtn").onclick=()=>alert("Input dan koreksi manual disiapkan untuk tahap berikutnya.");
-
-function renderAttendanceCalendar(){
-  const el=$("attCalendar"); if(!el)return;
-  const map={}; attRows.forEach(x=>{if(x.date)map[x.date]=x.status||""});
-  const now=new Date(), y=now.getFullYear(), m=now.getMonth();
-  const first=new Date(y,m,1).getDay(), days=new Date(y,m+1,0).getDate();
-  let h=["Min","Sen","Sel","Rab","Kam","Jum","Sab"].map(x=>`<div class="att-day" style="background:transparent;color:#667085">${x}</div>`).join("");
-  h += Array(first).fill('<div></div>').join("");
-  for(let d=1;d<=days;d++){let k=`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`,s=map[k]||"";h+=`<div class="att-day ${escapeAttr(s)}" title="${escapeAttr(s||"Belum tercatat")}">${d}</div>`}
-  el.innerHTML=h;
-}
+async function renderAdminAttendance(){return renderAttendanceV18();}
 
 document.querySelectorAll("[data-student-go]").forEach(b=>b.addEventListener("click",()=>{
   showPage(b.dataset.studentGo);
@@ -985,4 +970,261 @@ function syncStudentBottom(page){
   n.querySelectorAll("button").forEach(b=>{
     b.classList.toggle("active",b.dataset.studentGo===page);
   });
+}
+
+
+// ===== V18 ATTENDANCE CORE =====
+let adminAttendanceRows=[];
+let pendingAttendanceUpload=[];
+let allAttendanceRows=[];
+let allLeaveRows=[];
+
+function isoToday(){
+  const d=new Date();
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+function attendanceDocId(nis,date){
+  return `${String(nis).replace(/[^a-zA-Z0-9_-]/g,"_")}_${date}`;
+}
+function currentStudentList(){
+  const map=new Map();
+  records.forEach(r=>{
+    if(!r.nis)return;
+    const k=String(r.nis);
+    const prev=map.get(k);
+    if(!prev||semesterRank(r.semester)>=semesterRank(prev.semester))map.set(k,r);
+  });
+  return [...map.values()].sort((a,b)=>(a.nama||"").localeCompare(b.nama||""));
+}
+async function loadAllAttendanceV18(){
+  const [attSnap,leaveSnap]=await Promise.all([
+    getDocs(collection(db,"attendance")),
+    getDocs(collection(db,"leaveRequests"))
+  ]);
+  allAttendanceRows=attSnap.docs.map(d=>({id:d.id,...d.data()}));
+  allLeaveRows=leaveSnap.docs.map(d=>({id:d.id,...d.data()}));
+}
+function attendanceFor(nis,date){
+  return allAttendanceRows.find(x=>String(x.nis)===String(nis)&&x.date===date);
+}
+function updateAttendanceKpis(){
+  const date=$("attendanceDate").value;
+  const students=currentStudentList();
+  const daily=students.map(s=>attendanceFor(s.nis,date));
+  const c=status=>daily.filter(x=>x?.status===status).length;
+  $("adminAttH").textContent=c("Hadir");
+  $("adminAttS").textContent=c("Sakit");
+  $("adminAttI").textContent=c("Izin");
+  $("adminAttA").textContent=c("Alpa");
+  $("adminAttU").textContent=daily.filter(x=>!x).length;
+}
+function renderDailyAttendanceList(){
+  const date=$("attendanceDate").value;
+  const students=currentStudentList();
+  $("dailyAttendanceList").innerHTML=students.map(s=>{
+    const old=attendanceFor(s.nis,date);
+    return `<div class="v18-att-row" data-nis="${escapeAttr(String(s.nis))}">
+      <div class="v18-student"><b>${escapeHtml(s.nama||"-")}</b><small>NIS ${escapeHtml(String(s.nis))}</small></div>
+      <select class="v18-status">
+        <option value="">Belum Tercatat</option>
+        ${["Hadir","Sakit","Izin","Alpa"].map(x=>`<option value="${x}" ${old?.status===x?"selected":""}>${x}</option>`).join("")}
+      </select>
+      <input class="v18-note" placeholder="Keterangan (opsional)" value="${escapeAttr(old?.note||"")}">
+    </div>`;
+  }).join("")||'<div class="empty">Belum ada data siswa.</div>';
+  updateAttendanceKpis();
+}
+async function renderAttendanceV18(){
+  if(currentProfile?.role!=="admin")return;
+  if(!$("attendanceDate").value)$("attendanceDate").value=isoToday();
+  try{
+    await loadAllAttendanceV18();
+    renderDailyAttendanceList();
+    renderLeaveRequestsV18();
+    renderAttendanceRecapOptions();
+    renderAttendanceRecap();
+  }catch(e){
+    console.error(e);
+    $("dailyAttendanceList").innerHTML='<div class="empty">Data kehadiran belum dapat dimuat.</div>';
+  }
+}
+$("attendanceDate")?.addEventListener("change",renderDailyAttendanceList);
+$("markAllPresentBtn")?.addEventListener("click",()=>{
+  document.querySelectorAll("#dailyAttendanceList .v18-status").forEach(s=>s.value="Hadir");
+  updateAttendanceKpisFromForm();
+});
+function updateAttendanceKpisFromForm(){
+  const vals=[...document.querySelectorAll("#dailyAttendanceList .v18-status")].map(x=>x.value);
+  $("adminAttH").textContent=vals.filter(x=>x==="Hadir").length;
+  $("adminAttS").textContent=vals.filter(x=>x==="Sakit").length;
+  $("adminAttI").textContent=vals.filter(x=>x==="Izin").length;
+  $("adminAttA").textContent=vals.filter(x=>x==="Alpa").length;
+  $("adminAttU").textContent=vals.filter(x=>!x).length;
+}
+$("dailyAttendanceList")?.addEventListener("change",e=>{
+  if(e.target.classList.contains("v18-status"))updateAttendanceKpisFromForm();
+});
+$("saveDailyAttendanceBtn")?.addEventListener("click",async()=>{
+  const date=$("attendanceDate").value;
+  if(!date)return setMessage("dailyAttendanceMessage","Pilih tanggal terlebih dahulu.",true);
+  const rows=[...document.querySelectorAll("#dailyAttendanceList .v18-att-row")];
+  setMessage("dailyAttendanceMessage","Menyimpan...");
+  try{
+    let batch=writeBatch(db),count=0;
+    for(const row of rows){
+      const nis=row.dataset.nis,status=row.querySelector(".v18-status").value,note=row.querySelector(".v18-note").value.trim();
+      if(!status)continue;
+      const student=currentStudentList().find(s=>String(s.nis)===String(nis));
+      const id=attendanceDocId(nis,date);
+      batch.set(doc(db,"attendance",id),{
+        nis,name:student?.nama||"",kelas:student?.kelas||"",date,status,note,
+        source:"Manual",updatedAt:serverTimestamp()
+      },{merge:true});
+      count++;
+      if(count%400===0){await batch.commit();batch=writeBatch(db)}
+    }
+    await batch.commit();
+    setMessage("dailyAttendanceMessage","Kehadiran berhasil disimpan.");
+    await loadAllAttendanceV18();renderDailyAttendanceList();renderAttendanceRecap();
+  }catch(e){
+    console.error(e);setMessage("dailyAttendanceMessage","Gagal menyimpan kehadiran: "+e.message,true);
+  }
+});
+
+// Panel navigation
+function showAttendancePanel(id){
+  ["dailyAttendancePanel","attendanceUploadPanel","leaveRequestsPanel","attendanceRecapPanel"].forEach(x=>$(x).classList.toggle("hidden",x!==id));
+}
+$("openDailyAttendanceBtn")?.addEventListener("click",()=>showAttendancePanel("dailyAttendancePanel"));
+$("openAttendanceUploadBtn")?.addEventListener("click",()=>showAttendancePanel("attendanceUploadPanel"));
+$("openLeaveRequestsBtn")?.addEventListener("click",()=>showAttendancePanel("leaveRequestsPanel"));
+$("openAttendanceRecapBtn")?.addEventListener("click",()=>showAttendancePanel("attendanceRecapPanel"));
+
+// Leave approvals
+function renderLeaveRequestsV18(){
+  const pending=allLeaveRows.filter(x=>(x.status||"Menunggu")==="Menunggu");
+  $("pendingLeaveBadge").textContent=pending.length;
+  $("adminLeaveRequestsV18").innerHTML=pending.length?pending.map(x=>`
+    <div class="v18-request" data-id="${escapeAttr(x.id)}">
+      <div><b>${escapeHtml(x.name||x.nis||"-")} · ${escapeHtml(x.type||"-")}</b>
+      <small>${escapeHtml(x.startDate||"-")}${x.endDate&&x.endDate!==x.startDate?` s.d. ${escapeHtml(x.endDate)}`:""} · ${escapeHtml(x.note||"Tanpa keterangan")}</small></div>
+      <div class="v18-request-actions">
+        <button class="btn small approve-leave">Setujui</button>
+        <button class="btn small danger reject-leave">Tolak</button>
+      </div>
+    </div>`).join(""):'<div class="empty">Tidak ada pengajuan yang menunggu.</div>';
+}
+$("adminLeaveRequestsV18")?.addEventListener("click",async e=>{
+  const card=e.target.closest(".v18-request");if(!card)return;
+  const req=allLeaveRows.find(x=>x.id===card.dataset.id);if(!req)return;
+  if(e.target.classList.contains("approve-leave")){
+    try{
+      const start=new Date(req.startDate+"T00:00:00"),end=new Date((req.endDate||req.startDate)+"T00:00:00");
+      let batch=writeBatch(db);
+      for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1)){
+        const date=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+        batch.set(doc(db,"attendance",attendanceDocId(req.nis,date)),{
+          nis:String(req.nis),name:req.name||"",kelas:req.kelas||"",date,status:req.type,note:req.note||"",
+          source:"Pengajuan",updatedAt:serverTimestamp()
+        },{merge:true});
+      }
+      batch.update(doc(db,"leaveRequests",req.id),{status:"Disetujui",reviewedAt:serverTimestamp()});
+      await batch.commit();
+      await renderAttendanceV18();
+    }catch(err){alert("Gagal menyetujui: "+err.message)}
+  }
+  if(e.target.classList.contains("reject-leave")){
+    try{
+      await updateDoc(doc(db,"leaveRequests",req.id),{status:"Ditolak",reviewedAt:serverTimestamp()});
+      await renderAttendanceV18();
+    }catch(err){alert("Gagal menolak: "+err.message)}
+  }
+});
+
+// Upload attendance
+function normalizeAttendanceStatus(v){
+  const s=String(v||"").trim().toLowerCase();
+  if(["h","hadir"].includes(s))return "Hadir";
+  if(["s","sakit"].includes(s))return "Sakit";
+  if(["i","izin","ijin"].includes(s))return "Izin";
+  if(["a","alpa","alpha"].includes(s))return "Alpa";
+  return "";
+}
+function normalizeDateValue(v){
+  if(v instanceof Date&&!isNaN(v))return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,"0")}-${String(v.getDate()).padStart(2,"0")}`;
+  if(typeof v==="number"&&window.XLSX?.SSF?.parse_date_code){
+    const d=XLSX.SSF.parse_date_code(v);if(d)return `${d.y}-${String(d.m).padStart(2,"0")}-${String(d.d).padStart(2,"0")}`;
+  }
+  const s=String(v||"").trim();
+  const m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(m)return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+  return "";
+}
+$("parseAttendanceFileBtn")?.addEventListener("click",async()=>{
+  const file=$("attendanceFileInput").files?.[0];if(!file)return setMessage("attendanceUploadSummary","Pilih file terlebih dahulu.",true);
+  try{
+    const data=await file.arrayBuffer(),wb=XLSX.read(data,{type:"array"}),ws=wb.Sheets[wb.SheetNames[0]];
+    const arr=XLSX.utils.sheet_to_json(ws,{defval:""});
+    const students=new Map(currentStudentList().map(s=>[String(s.nis),s]));
+    pendingAttendanceUpload=arr.map((r,i)=>{
+      const keyMap={};Object.keys(r).forEach(k=>keyMap[k.toLowerCase().trim()]=r[k]);
+      const nis=String(keyMap["nis"]||keyMap["nisn"]||"").trim();
+      const date=normalizeDateValue(keyMap["tanggal"]||keyMap["date"]);
+      const status=normalizeAttendanceStatus(keyMap["status"]||keyMap["kehadiran"]);
+      return {row:i+2,nis,date,status,note:String(keyMap["keterangan"]||keyMap["catatan"]||"").trim(),student:students.get(nis),valid:!!(nis&&date&&status&&students.get(nis))};
+    });
+    const valid=pendingAttendanceUpload.filter(x=>x.valid).length,invalid=pendingAttendanceUpload.length-valid;
+    setMessage("attendanceUploadSummary",`${valid} baris valid${invalid?`, ${invalid} bermasalah`:""}.`,invalid>0);
+    $("attendanceUploadPreview").innerHTML=`<table class="v18-table"><thead><tr><th>Baris</th><th>NIS</th><th>Nama</th><th>Tanggal</th><th>Status</th><th>Validasi</th></tr></thead><tbody>${pendingAttendanceUpload.slice(0,150).map(x=>`<tr><td>${x.row}</td><td>${escapeHtml(x.nis)}</td><td>${escapeHtml(x.student?.nama||"-")}</td><td>${escapeHtml(x.date||"-")}</td><td>${escapeHtml(x.status||"-")}</td><td>${x.valid?"✓":"Periksa"}</td></tr>`).join("")}</tbody></table>`;
+    $("saveAttendanceUploadBtn").disabled=!valid;
+  }catch(e){console.error(e);setMessage("attendanceUploadSummary","File tidak dapat dibaca: "+e.message,true)}
+});
+$("saveAttendanceUploadBtn")?.addEventListener("click",async()=>{
+  const mode=document.querySelector('input[name="attendanceConflict"]:checked')?.value||"skip";
+  const valid=pendingAttendanceUpload.filter(x=>x.valid);if(!valid.length)return;
+  try{
+    await loadAllAttendanceV18();
+    let batch=writeBatch(db),count=0,skipped=0;
+    for(const x of valid){
+      const exists=attendanceFor(x.nis,x.date);
+      if(exists&&mode==="skip"){skipped++;continue}
+      batch.set(doc(db,"attendance",attendanceDocId(x.nis,x.date)),{
+        nis:x.nis,name:x.student.nama||"",kelas:x.student.kelas||"",date:x.date,status:x.status,note:x.note,
+        source:"Upload",updatedAt:serverTimestamp()
+      },{merge:true});count++;
+      if(count%400===0){await batch.commit();batch=writeBatch(db)}
+    }
+    await batch.commit();
+    setMessage("attendanceUploadSummary",`Selesai. ${count} data disimpan${skipped?`, ${skipped} dilewati`:""}.`);
+    pendingAttendanceUpload=[];$("saveAttendanceUploadBtn").disabled=true;
+    await renderAttendanceV18();
+  }catch(e){setMessage("attendanceUploadSummary","Gagal menyimpan hasil upload: "+e.message,true)}
+});
+
+// Download simple CSV template
+$("downloadAttendanceTemplateBtn")?.addEventListener("click",()=>{
+  const csv="NIS,Nama,Tanggal,Status,Keterangan\n24001,Contoh Siswa,22/08/2026,Hadir,\n";
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="template-kehadiran.csv";a.click();URL.revokeObjectURL(a.href);
+});
+
+// Recap
+function renderAttendanceRecapOptions(){
+  const months=uniq(allAttendanceRows.map(x=>String(x.date||"").slice(0,7)).filter(Boolean)).sort().reverse();
+  const sel=$("attendanceRecapMonth"),old=sel.value;
+  sel.innerHTML='<option value="ALL">Semua Bulan</option>'+months.map(m=>`<option value="${m}">${m}</option>`).join("");
+  if(months.includes(old)||old==="ALL")sel.value=old||"ALL";
+}
+$("attendanceRecapMonth")?.addEventListener("change",renderAttendanceRecap);
+function renderAttendanceRecap(){
+  const month=$("attendanceRecapMonth")?.value||"ALL";
+  const students=currentStudentList();
+  const rows=students.map(s=>{
+    const data=allAttendanceRows.filter(x=>String(x.nis)===String(s.nis)&&(month==="ALL"||String(x.date).startsWith(month)));
+    const n=st=>data.filter(x=>x.status===st).length,h=n("Hadir"),sa=n("Sakit"),iz=n("Izin"),al=n("Alpa"),total=h+sa+iz+al;
+    return {s,h,sa,iz,al,total,rate:total?Math.round(h/total*100):0};
+  });
+  $("attendanceRecapTable").innerHTML=`<table class="v18-table"><thead><tr><th>NIS</th><th>Nama</th><th>H</th><th>S</th><th>I</th><th>A</th><th>Kehadiran</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${escapeHtml(String(x.s.nis))}</td><td>${escapeHtml(x.s.nama||"-")}</td><td>${x.h}</td><td>${x.sa}</td><td>${x.iz}</td><td>${x.al}</td><td>${x.total?x.rate+"%":"—"}</td></tr>`).join("")}</tbody></table>`;
 }
