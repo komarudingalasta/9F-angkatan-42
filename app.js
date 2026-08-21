@@ -855,8 +855,83 @@ function summaryV17(sem){return studentSummaries.find(s=>String(s.semester)===St
 function cohortV15(){return [];} // V17: siswa tidak membaca nilai siswa lain.
 function posV15(sem,val){const s=summaryV17(sem);return {p:s?.rank??null,n:s?.classSize??0};}
 function renderAcademicV15(){const rows=mineV15();if(!rows.length)return;const last=rows.at(-1),prev=rows.at(-2),la=rowAvg(last),pa=prev?rowAvg(prev):la,d=la-pa,p=posV15(last.semester,la);$("v16Greeting").textContent=`Selamat datang, ${(currentProfile.name||last.nama||"Siswa").split(" ")[0]} 👋`;$("v15Meta").textContent=`NIS ${currentProfile.nis} · Kelas ${classNow()}`;$("v15Latest").textContent=fmt(la);$("v15Combined").textContent=fmt(avg(rows.map(rowAvg)));$("v15Delta").textContent=prev?`${d>=0?"↑":"↓"} ${fmt(Math.abs(d))} dari semester sebelumnya`:"Semester pertama";$("v15Position").textContent=p.n?`${p.p} / ${p.n}`:"—";if($("v15Growth")) $("v15Growth").textContent=d>=2?"Meningkat":d<=-2?"Perlu perhatian":"Stabil";const subs=subjectKeys(rows,false),metric=$("v15Metric"),old=metric.value;metric.innerHTML='<option value="AVG">Rata-rata Rapor</option>'+subs.map(s=>`<option value="${escapeAttr(s)}">${escapeHtml(subjectLabel(s))}</option>`).join("");if([...metric.options].some(o=>o.value===old))metric.value=old;metric.onchange=drawV15;const sel=$("v15Semester"),os=sel.value;sel.innerHTML=rows.map(r=>`<option>${escapeHtml(r.semester)}</option>`).join("");sel.value=rows.some(r=>r.semester===os)?os:last.semester;sel.onchange=gradesV15;drawV15();gradesV15();let vals=subs.map(s=>({s,v:Number(last.scores?.[s])})).filter(x=>Number.isFinite(x.v)).sort((a,b)=>b.v-a.v);$("v15Strong").textContent=vals[0]?subjectLabel(vals[0].s):"—";$("v15StrongVal").textContent=vals[0]?fmt(vals[0].v):"—";$("v15Focus").textContent=vals.at(-1)?subjectLabel(vals.at(-1).s):"—";$("v15FocusVal").textContent=vals.at(-1)?fmt(vals.at(-1).v):"—";let inc=[];if(prev)subs.forEach(s=>{let a=Number(prev.scores?.[s]),b=Number(last.scores?.[s]);if(Number.isFinite(a)&&Number.isFinite(b))inc.push({s,d:b-a})});inc.sort((a,b)=>b.d-a.d);$("v15Improve").textContent=inc[0]?subjectLabel(inc[0].s):"—";$("v15ImproveVal").textContent=inc[0]?`${inc[0].d>=0?"+":""}${fmt(inc[0].d)} poin`:"Belum ada pembanding";$("v15Journey").innerHTML=rows.map(r=>{let q=posV15(r.semester,rowAvg(r));return `<div class="v15-step"><span>${escapeHtml(r.semester)}</span><b>${q.p?"#"+q.p:"—"}</b><small>${fmt(rowAvg(r))}${q.n?" · "+q.n+" siswa":""}</small></div>`}).join("")}
-function drawV15(){const rows=mineV15(),m=$("v15Metric").value,mine=rows.map(r=>m==="AVG"?rowAvg(r):Number(r.scores?.[m])),grp=rows.map(r=>{const s=summaryV17(r.semester);return m==="AVG"?Number(s?.classReportAverage):Number(s?.subjectAverages?.[m]);});if(v15ChartObj)v15ChartObj.destroy();v15ChartObj=new Chart($("v15Chart"),{type:"line",data:{labels:rows.map(r=>r.semester),datasets:[{label:"Nilai Saya",data:mine,tension:.35,pointRadius:5},{label:"Rata-rata Kelompok",data:grp,tension:.35,borderDash:[6,5],pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:20}},scales:{y:{suggestedMin:0,suggestedMax:100}}}})}
-function gradesV15(){let r=mineV15().find(x=>x.semester===$("v15Semester").value);if(!r)return;let sum=summaryV17(r.semester),subs=subjectKeys([r],false);$("v15Grades").innerHTML=`<table class="v15-table"><thead><tr><th>Mata Pelajaran</th><th>Nilai Saya</th><th>Rata-rata Kelompok</th><th>Selisih</th></tr></thead><tbody>${subs.map(s=>{let a=Number(r.scores?.[s]),g=Number(sum?.subjectAverages?.[s]),d=a-g;return `<tr><td>${escapeHtml(subjectLabel(s))}</td><td class="num">${fmt(a)}</td><td class="num">${Number.isFinite(g)?fmt(g):"—"}</td><td class="num">${Number.isFinite(d)?(d>=0?"+":"")+fmt(d):"—"}</td></tr>`}).join("")}</tbody></table>`}
+function drawV15(){
+  const rows=mineV15();
+  const metric=$("v15Metric").value;
+  const mine=rows.map(r=>metric==="AVG"?rowAvg(r):Number(r.scores?.[metric]));
+
+  if(v15ChartObj)v15ChartObj.destroy();
+
+  v15ChartObj=new Chart($("v15Chart"),{
+    type:"line",
+    data:{
+      labels:rows.map(r=>r.semester),
+      datasets:[{
+        label:metric==="AVG"?"Rata-rata Rapor Saya":subjectLabel(metric),
+        data:mine,
+        tension:.35,
+        pointRadius:5,
+        pointHoverRadius:6,
+        fill:false
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      layout:{padding:{top:24,right:8,left:4,bottom:2}},
+      plugins:{
+        legend:{display:false},
+        tooltip:{enabled:true}
+      },
+      scales:{
+        y:{
+          suggestedMin:0,
+          suggestedMax:100,
+          ticks:{precision:0}
+        },
+        x:{
+          grid:{display:false}
+        }
+      }
+    }
+  });
+}
+function gradesV15(){
+  const r=mineV15().find(x=>x.semester===$("v15Semester").value);
+  if(!r)return;
+
+  const sum=summaryV17(r.semester);
+  const subs=subjectKeys([r],false);
+
+  $("v15Grades").innerHTML=`
+    <table class="v15-table v17-grades-table">
+      <thead>
+        <tr>
+          <th>Mata Pelajaran</th>
+          <th>Nilai Saya</th>
+          <th>Rata-rata Kelompok</th>
+          <th>Selisih</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${subs.map(s=>{
+          const mine=Number(r.scores?.[s]);
+          const groupAvg=Number(sum?.subjectAverages?.[s]);
+          const diff=mine-groupAvg;
+          const groupText=Number.isFinite(groupAvg)?fmt(groupAvg):"—";
+          const diffText=Number.isFinite(diff)?`${diff>=0?"+":""}${fmt(diff)}`:"—";
+          const diffClass=Number.isFinite(diff)?(diff>=0?"positive-diff":"negative-diff"):"";
+          return `
+            <tr>
+              <td data-label="Mata Pelajaran">${escapeHtml(subjectLabel(s))}</td>
+              <td data-label="Nilai Saya" class="num">${fmt(mine)}</td>
+              <td data-label="Rata-rata Kelompok" class="num">${groupText}</td>
+              <td data-label="Selisih" class="num ${diffClass}">${diffText}</td>
+            </tr>`;
+        }).join("")}
+      </tbody>
+    </table>`;
+}
 async function loadAtt(student=true){attRows=[];leaveRows=[];try{if(student){let a=await getDocs(query(collection(db,"attendance"),where("nis","==",String(currentProfile.nis))));attRows=a.docs.map(d=>({id:d.id,...d.data()}));let l=await getDocs(query(collection(db,"leaveRequests"),where("nis","==",String(currentProfile.nis))));leaveRows=l.docs.map(d=>({id:d.id,...d.data()}))}else{let l=await getDocs(collection(db,"leaveRequests"));leaveRows=l.docs.map(d=>({id:d.id,...d.data()}))}}catch(e){console.warn(e)}}
 async function renderAttendanceV15(){await loadAtt(true);$("attName").textContent=currentProfile.name||`NIS ${currentProfile.nis}`;let h=attRows.filter(x=>x.status==="Hadir").length,s=attRows.filter(x=>x.status==="Sakit").length,i=attRows.filter(x=>x.status==="Izin").length,a=attRows.filter(x=>x.status==="Alpa").length,t=h+s+i+a;const rate=t?Math.round(h/t*100):0;
   $("attRate").textContent=t?rate+"%":"—";

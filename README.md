@@ -289,3 +289,11 @@ Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya 
 - Student mobile layout now uses explicit `student-mode` instead of relying on `:has()` selectors.
 - Student screen starts directly on Academic and uses only bottom navigation for Academic / Attendance.
 - Added render fallbacks so a single component error no longer leaves a completely blank white screen.
+
+
+## V17.3
+- Grafik perkembangan siswa hanya menampilkan nilai siswa; garis rata-rata kelompok dihapus.
+- Nilai angka tetap terlihat pada titik grafik melalui plugin label yang sudah ada.
+- Tabel Nilai Saya diperbaiki agar tidak keluar dari kartu.
+- Di layar HP, tabel Nilai Saya berubah menjadi kartu per mata pelajaran agar lebih mudah dibaca.
+- Rata-rata kelompok tetap tersedia di bagian Nilai Saya sebagai pembanding.

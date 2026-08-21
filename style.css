@@ -470,3 +470,89 @@ body.auth-locked #sidebarToggle{
   body.student-mode .student-bottom-nav{display:flex!important}
 }
 body:not(.student-mode) .student-bottom-nav{display:none!important}
+
+/* ===== V17.3 NILAI & GRAFIK POLISH ===== */
+.v17-grades-scroll{
+  width:100%;
+  max-width:100%;
+  overflow:hidden;
+}
+.v17-grades-table{
+  width:100%;
+  max-width:100%;
+  table-layout:fixed;
+}
+.v17-grades-table th,
+.v17-grades-table td{
+  overflow-wrap:anywhere;
+  word-break:normal;
+}
+.v17-grades-table th:first-child,
+.v17-grades-table td:first-child{
+  width:40%;
+}
+.v17-grades-table th:not(:first-child),
+.v17-grades-table td:not(:first-child){
+  width:20%;
+}
+#studentAcademicV15Page .v15-chart{
+  overflow:hidden;
+}
+#studentAcademicV15Page canvas{
+  max-width:100%!important;
+}
+
+@media(max-width:600px){
+  .v17-grades-scroll{
+    overflow:visible;
+  }
+  .v17-grades-table,
+  .v17-grades-table tbody,
+  .v17-grades-table tr,
+  .v17-grades-table td{
+    display:block;
+    width:100%!important;
+  }
+  .v17-grades-table thead{
+    display:none;
+  }
+  .v17-grades-table tr{
+    margin:0 0 10px;
+    padding:12px 13px;
+    border:1px solid var(--line);
+    border-radius:13px;
+    background:#fafcff;
+  }
+  .v17-grades-table td{
+    border:0!important;
+    padding:5px 0!important;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:12px;
+    align-items:center;
+    text-align:right!important;
+  }
+  .v17-grades-table td:before{
+    content:attr(data-label);
+    text-align:left;
+    color:var(--muted);
+    font-size:9px;
+    font-weight:700;
+  }
+  .v17-grades-table td:first-child{
+    display:block;
+    text-align:left!important;
+    padding-bottom:9px!important;
+    margin-bottom:4px;
+    border-bottom:1px solid var(--line)!important;
+    font-size:12px;
+    font-weight:800;
+  }
+  .v17-grades-table td:first-child:before{
+    display:none;
+  }
+  #studentAcademicV15Page .v15-chart{
+    height:230px!important;
+    min-height:230px!important;
+  }
+}
