@@ -458,3 +458,15 @@ body.auth-locked #sidebarToggle{
   .attendance-ring:after{width:74px;height:74px}
   .attendance-ring strong{font-size:22px}
 }
+
+/* ===== V17.2 STABLE STUDENT MODE ===== */
+@media(max-width:760px){
+  body.student-mode .topbar{display:none!important}
+  body.student-mode .main{padding:12px 12px 82px!important}
+  body.student-mode #menuBtn,
+  body.student-mode .sidebar,
+  body.student-mode #sidebarBackdrop{display:none!important}
+  body.student-mode .student-summary{margin-top:0!important}
+  body.student-mode .student-bottom-nav{display:flex!important}
+}
+body:not(.student-mode) .student-bottom-nav{display:none!important}

@@ -52,6 +52,7 @@ if(!configReady()){
         currentProfile=null;
         records=[];studentSummaries=[];
         document.body.classList.add("auth-locked");
+        document.body.classList.remove("student-mode","admin-mode");
         $("app").classList.add("hidden");
         $("sidebarBackdrop")?.classList.add("hidden");
         document.querySelector(".sidebar")?.classList.remove("open");
@@ -74,6 +75,8 @@ function studentInternalEmail(nis){
 
 function applyRoleUI(){
   const isStudent=currentProfile?.role==="student";
+  document.body.classList.toggle("student-mode",isStudent);
+  document.body.classList.toggle("admin-mode",!isStudent);
   document.querySelectorAll(".admin-only").forEach(el=>el.classList.toggle("hidden",isStudent));
   document.querySelectorAll(".student-only").forEach(el=>el.classList.toggle("hidden",!isStudent));
   $("semesterFilter").classList.toggle("hidden",isStudent);
@@ -109,6 +112,7 @@ $("resetPassword").onclick=async()=>{
 };
 $("logoutBtn").onclick=async()=>{
   document.body.classList.add("auth-locked");
+  document.body.classList.remove("student-mode","admin-mode");
   closeSidebar?.();
   try{await signOut(auth)}catch(e){console.error(e)}
   currentProfile=null;
@@ -160,7 +164,14 @@ function showPage(page){
   if(page==="pulse")renderPulse("pulseGrid");
   if(page==="students")renderStudentList();
   if(page==="subjects")renderSubjects();
-  if(page==="settings"){renderSettings();renderStudentAccess();} if(page==="attendance")renderAdminAttendance(); if(page==="studentAcademicV15")renderAcademicV15(); if(page==="studentAttendanceV15")renderAttendanceV15();
+  if(page==="settings"){renderSettings();renderStudentAccess();}
+  if(page==="attendance")renderAdminAttendance();
+  if(page==="studentAcademicV15"){
+    try{renderAcademicV15()}catch(e){console.error(e);target.innerHTML='<div class="card" style="padding:18px"><h3>Data akademik belum dapat ditampilkan</h3><p>Silakan muat ulang halaman atau hubungi admin.</p></div>'}
+  }
+  if(page==="studentAttendanceV15"){
+    try{renderAttendanceV15()}catch(e){console.error(e);target.innerHTML='<div class="card" style="padding:18px"><h3>Data kehadiran belum dapat ditampilkan</h3><p>Silakan muat ulang halaman atau hubungi admin.</p></div>'}
+  }
   if(page==="myGrades")renderMyGrades();
   if(page==="studentHome")renderStudentHome();
   if(page==="studentProgress")setTimeout(renderStudentProgress,0);
@@ -875,14 +886,13 @@ document.querySelectorAll("[data-student-go]").forEach(b=>b.addEventListener("cl
   closeSidebar();
 }));
 function syncStudentBottom(page){
- const student=!!(currentProfile&&currentProfile.role==="student");
- if(student){
-   document.querySelector(".sidebar")?.classList.remove("open");
-   $("sidebarBackdrop")?.classList.add("hidden");
- }
-
- const n=$("studentBottomNav"); if(!n)return;
- const student=!!(currentProfile&&currentProfile.role==="student");
- n.classList.toggle("hidden",!student);
- n.querySelectorAll("button").forEach(b=>b.classList.toggle("active",b.dataset.studentGo===page));
+  const student=!!(currentProfile&&currentProfile.role==="student");
+  const n=$("studentBottomNav");
+  if(student){
+    document.querySelector(".sidebar")?.classList.remove("open");
+    $("sidebarBackdrop")?.classList.add("hidden");
+  }
+  if(!n)return;
+  n.classList.toggle("hidden",!student);
+  n.querySelectorAll("button").forEach(b=>b.classList.toggle("active",b.dataset.studentGo===page));
 }

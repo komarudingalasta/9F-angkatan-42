@@ -282,3 +282,10 @@ Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya 
 - Student navigation reduced to bottom tabs: Academic and Attendance.
 - Sidebar/drawer is not shown for student accounts.
 - Attendance page reorganized into attendance ring, H/S/I/A breakdown, leave request, calendar, and history.
+
+
+## V17.2 — White Screen Fix
+- Fixed a fatal JavaScript duplicate `const` declaration in student bottom navigation.
+- Student mobile layout now uses explicit `student-mode` instead of relying on `:has()` selectors.
+- Student screen starts directly on Academic and uses only bottom navigation for Academic / Attendance.
+- Added render fallbacks so a single component error no longer leaves a completely blank white screen.
