@@ -257,3 +257,11 @@ Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya 
 - Ditambahkan penjelasan bahwa posisi semester dibandingkan dengan kelompok siswa yang berada di kelas saat ini.
 - Teks login disederhanakan.
 - Istilah teknis Firebase/Firestore dihilangkan dari pesan yang dilihat pengguna.
+
+
+## V16.2
+- Student header renamed to Ringkasan.
+- Mobile menu moved to top-left.
+- Student success banner hidden to reduce clutter.
+- Academic-position history now compares each semester against the CURRENT CLASS cohort, not the student's historical class.
+- Missing cohort ranks display as — instead of misleading rank 0.

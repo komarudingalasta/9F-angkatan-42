@@ -324,3 +324,27 @@ body.auth-locked #sidebarToggle{
  .student-bottom-nav button.active{color:#1767df}
  body:has(.student-only:not(.hidden)) main{padding-bottom:78px!important}
 }
+
+/* ===== V16.2 POLISH + POSITION FIX ===== */
+@media(max-width:760px){
+ body:has(.student-only:not(.hidden)) .topbar{
+   min-height:56px!important;padding:10px 14px!important;margin:-12px -12px 14px!important;
+   border-radius:0!important
+ }
+ body:has(.student-only:not(.hidden)) .topbar h2{font-size:18px!important;margin:0!important}
+ body:has(.student-only:not(.hidden)) #menuBtn{
+   left:10px!important;top:9px!important;width:42px!important;height:42px!important
+ }
+ body:has(.student-only:not(.hidden)) #status{
+   display:none!important
+ }
+ .student-summary{padding:18px!important;margin-top:0!important}
+ .student-summary h2{font-size:22px!important}
+ .hero-score{margin-top:14px!important}
+ .hero-mini article{min-height:92px;display:flex;flex-direction:column;justify-content:center}
+ .v15-section{min-height:0!important}
+ .v15-chart{height:245px!important;min-height:245px!important}
+ .position-note{font-size:10px;line-height:1.45;color:#667085;margin-top:10px}
+ .position-change{display:inline-block;margin-top:8px;padding:6px 9px;border-radius:999px;
+   background:#e9f8ee;color:#15803d;font-size:10px;font-weight:800}
+}
