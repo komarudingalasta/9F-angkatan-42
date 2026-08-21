@@ -325,3 +325,12 @@ Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya 
 - Rekap H/S/I/A dan persentase kehadiran per siswa.
 - Sumber data disimpan: Manual, Upload, Pengajuan.
 - Kamera Absensi belum diaktifkan di V18.
+
+
+## V18.1
+- Tab Kehadiran kini memiliki indikator aktif yang berpindah sesuai panel.
+- Upload default memakai format bulanan NIS, Nama, tanggal 1–31.
+- H/S/I/A didukung dan sel kosong dilewati.
+- Pilih bulan/tahun sekali sebelum upload.
+- Template bulanan otomatis berisi siswa aktif.
+- Format harian tetap tersedia.

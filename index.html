@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#174b9e">
   <title>PakKom Student Analytics</title>
-  <link rel="stylesheet" href="style.css?v=18">
+  <link rel="stylesheet" href="style.css?v=18.1">
 </head>
 <body>
   <section id="setupScreen" class="center-screen hidden auth-screen">
@@ -364,10 +364,10 @@
   </div>
 
   <div class="v18-actions">
-    <button id="openDailyAttendanceBtn" class="btn primary">✓ Isi Kehadiran Hari Ini</button>
-    <button id="openAttendanceUploadBtn" class="btn">⇧ Upload Excel</button>
-    <button id="openLeaveRequestsBtn" class="btn">◎ Pengajuan <span id="pendingLeaveBadge">0</span></button>
-    <button id="openAttendanceRecapBtn" class="btn">▣ Rekap</button>
+    <button id="openDailyAttendanceBtn" class="btn v18-tab active" data-att-panel="dailyAttendancePanel">✓ Isi Kehadiran Hari Ini</button>
+    <button id="openAttendanceUploadBtn" class="btn v18-tab" data-att-panel="attendanceUploadPanel">⇧ Upload Excel</button>
+    <button id="openLeaveRequestsBtn" class="btn v18-tab" data-att-panel="leaveRequestsPanel">◎ Pengajuan <span id="pendingLeaveBadge">0</span></button>
+    <button id="openAttendanceRecapBtn" class="btn v18-tab" data-att-panel="attendanceRecapPanel">▣ Rekap</button>
   </div>
 
   <section id="dailyAttendancePanel" class="card v18-panel">
@@ -385,9 +385,14 @@
   <section id="attendanceUploadPanel" class="card v18-panel hidden">
     <div class="section-head responsive">
       <div><span class="eyebrow">IMPORT</span><h3>Upload Kehadiran Excel</h3><p>Format: NIS, Nama, Tanggal, Status, Keterangan.</p></div>
-      <button id="downloadAttendanceTemplateBtn" class="btn small">Unduh Template</button>
+      <button id="downloadAttendanceTemplateBtn" class="btn small">Unduh Template Bulanan</button>
     </div>
-    <div class="upload-box compact-upload">
+    <div class="v181-upload-mode">
+<label>Format Upload<select id="attendanceUploadMode"><option value="monthly">Bulanan (disarankan)</option><option value="daily">Harian</option></select></label>
+<label id="attendanceUploadMonthWrap">Bulan<input id="attendanceUploadMonth" type="month"></label>
+</div>
+<div id="monthlyFormatHelp" class="v181-help"><b>Format bulanan:</b> NIS | Nama | 1 | 2 | 3 | ... | 31. Isi H, S, I, atau A. Kolom kosong dilewati.</div>
+<div class="upload-box compact-upload">
       <input id="attendanceFileInput" type="file" accept=".xlsx,.xls,.csv">
       <button id="parseAttendanceFileBtn" class="btn primary">Baca File</button>
     </div>
@@ -422,7 +427,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script type="module" src="app.js?v=18"></script>
+  <script type="module" src="app.js?v=18.1"></script>
 <nav id="studentBottomNav" class="student-bottom-nav hidden">
 <button data-student-go="studentAcademicV15"><b>▥</b>Akademik</button>
 <button data-student-go="studentAttendanceV15"><b>✓</b>Kehadiran</button>

@@ -1094,7 +1094,8 @@ $("saveDailyAttendanceBtn")?.addEventListener("click",async()=>{
 
 // Panel navigation
 function showAttendancePanel(id){
-  ["dailyAttendancePanel","attendanceUploadPanel","leaveRequestsPanel","attendanceRecapPanel"].forEach(x=>$(x).classList.toggle("hidden",x!==id));
+  ["dailyAttendancePanel","attendanceUploadPanel","leaveRequestsPanel","attendanceRecapPanel"].forEach(x=>$(x)?.classList.toggle("hidden",x!==id));
+  document.querySelectorAll(".v18-tab").forEach(b=>b.classList.toggle("active",b.dataset.attPanel===id));
 }
 $("openDailyAttendanceBtn")?.addEventListener("click",()=>showAttendancePanel("dailyAttendancePanel"));
 $("openAttendanceUploadBtn")?.addEventListener("click",()=>showAttendancePanel("attendanceUploadPanel"));
@@ -1168,13 +1169,12 @@ $("parseAttendanceFileBtn")?.addEventListener("click",async()=>{
     const data=await file.arrayBuffer(),wb=XLSX.read(data,{type:"array"}),ws=wb.Sheets[wb.SheetNames[0]];
     const arr=XLSX.utils.sheet_to_json(ws,{defval:""});
     const students=new Map(currentStudentList().map(s=>[String(s.nis),s]));
-    pendingAttendanceUpload=arr.map((r,i)=>{
-      const keyMap={};Object.keys(r).forEach(k=>keyMap[k.toLowerCase().trim()]=r[k]);
-      const nis=String(keyMap["nis"]||keyMap["nisn"]||"").trim();
-      const date=normalizeDateValue(keyMap["tanggal"]||keyMap["date"]);
-      const status=normalizeAttendanceStatus(keyMap["status"]||keyMap["kehadiran"]);
-      return {row:i+2,nis,date,status,note:String(keyMap["keterangan"]||keyMap["catatan"]||"").trim(),student:students.get(nis),valid:!!(nis&&date&&status&&students.get(nis))};
-    });
+    pendingAttendanceUpload=$("attendanceUploadMode")?.value==="daily" ? arr.map((r,i)=>{
+ const keyMap={};Object.keys(r).forEach(k=>keyMap[k.toLowerCase().trim()]=r[k]);
+ const nis=String(keyMap["nis"]||keyMap["nisn"]||"").trim(),date=normalizeDateValue(keyMap["tanggal"]||keyMap["date"]),status=normalizeAttendanceStatus(keyMap["status"]||keyMap["kehadiran"]);
+ const students=new Map(currentStudentList().map(s=>[String(s.nis),s]));
+ return {row:i+2,nis,date,status,note:String(keyMap["keterangan"]||keyMap["catatan"]||"").trim(),student:students.get(nis),valid:!!(nis&&date&&status&&students.get(nis))};
+}) : parseMonthlyAttendanceRows(arr);
     const valid=pendingAttendanceUpload.filter(x=>x.valid).length,invalid=pendingAttendanceUpload.length-valid;
     setMessage("attendanceUploadSummary",`${valid} baris valid${invalid?`, ${invalid} bermasalah`:""}.`,invalid>0);
     $("attendanceUploadPreview").innerHTML=`<table class="v18-table"><thead><tr><th>Baris</th><th>NIS</th><th>Nama</th><th>Tanggal</th><th>Status</th><th>Validasi</th></tr></thead><tbody>${pendingAttendanceUpload.slice(0,150).map(x=>`<tr><td>${x.row}</td><td>${escapeHtml(x.nis)}</td><td>${escapeHtml(x.student?.nama||"-")}</td><td>${escapeHtml(x.date||"-")}</td><td>${escapeHtml(x.status||"-")}</td><td>${x.valid?"✓":"Periksa"}</td></tr>`).join("")}</tbody></table>`;
@@ -1205,9 +1205,15 @@ $("saveAttendanceUploadBtn")?.addEventListener("click",async()=>{
 
 // Download simple CSV template
 $("downloadAttendanceTemplateBtn")?.addEventListener("click",()=>{
-  const csv="NIS,Nama,Tanggal,Status,Keterangan\n24001,Contoh Siswa,22/08/2026,Hadir,\n";
-  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
-  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="template-kehadiran.csv";a.click();URL.revokeObjectURL(a.href);
+ const monthly=$("attendanceUploadMode")?.value!=="daily";let csv,name;
+ if(monthly){
+  const heads=["NIS","Nama",...Array.from({length:31},(_,i)=>String(i+1))];
+  const rows=currentStudentList().map(s=>[s.nis,s.nama||"",...Array(31).fill("")]);
+  csv=[heads,...rows].map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\n");
+  name="template-kehadiran-bulanan.csv";
+ }else{csv="NIS,Nama,Tanggal,Status,Keterangan\n";name="template-kehadiran-harian.csv";}
+ const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href);
 });
 
 // Recap
@@ -1227,4 +1233,30 @@ function renderAttendanceRecap(){
     return {s,h,sa,iz,al,total,rate:total?Math.round(h/total*100):0};
   });
   $("attendanceRecapTable").innerHTML=`<table class="v18-table"><thead><tr><th>NIS</th><th>Nama</th><th>H</th><th>S</th><th>I</th><th>A</th><th>Kehadiran</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${escapeHtml(String(x.s.nis))}</td><td>${escapeHtml(x.s.nama||"-")}</td><td>${x.h}</td><td>${x.sa}</td><td>${x.iz}</td><td>${x.al}</td><td>${x.total?x.rate+"%":"—"}</td></tr>`).join("")}</tbody></table>`;
+}
+
+// ===== V18.1 MONTHLY IMPORT =====
+function syncAttendanceUploadMode(){
+ const monthly=$("attendanceUploadMode")?.value!=="daily";
+ $("attendanceUploadMonthWrap")?.classList.toggle("hidden",!monthly);
+ if($("downloadAttendanceTemplateBtn"))$("downloadAttendanceTemplateBtn").textContent=monthly?"Unduh Template Bulanan":"Unduh Template Harian";
+ if($("monthlyFormatHelp"))$("monthlyFormatHelp").innerHTML=monthly?"<b>Format bulanan:</b> NIS | Nama | 1 | 2 | 3 | ... | 31. Isi H, S, I, atau A. Kolom kosong dilewati.":"<b>Format harian:</b> NIS | Nama | Tanggal | Status | Keterangan.";
+}
+$("attendanceUploadMode")?.addEventListener("change",syncAttendanceUploadMode);
+if($("attendanceUploadMonth")&&!$("attendanceUploadMonth").value)$("attendanceUploadMonth").value=isoToday().slice(0,7);
+syncAttendanceUploadMode();
+function parseMonthlyAttendanceRows(arr){
+ const month=$("attendanceUploadMonth")?.value;if(!month)throw new Error("Pilih bulan dan tahun terlebih dahulu.");
+ const [year,mon]=month.split("-").map(Number),maxDay=new Date(year,mon,0).getDate();
+ const students=new Map(currentStudentList().map(s=>[String(s.nis),s])),result=[];
+ arr.forEach((r,rowIndex)=>{
+  const km={};Object.keys(r).forEach(k=>km[String(k).trim().toLowerCase()]=r[k]);
+  const nis=String(km["nis"]||km["nisn"]||"").trim(),student=students.get(nis);
+  for(let day=1;day<=maxDay;day++){
+   const raw=km[String(day)];if(raw===undefined||String(raw).trim()==="")continue;
+   const status=normalizeAttendanceStatus(raw),date=`${year}-${String(mon).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+   result.push({row:rowIndex+2,nis,date,status,note:"",student,valid:!!(nis&&student&&status)});
+  }
+ });
+ return result;
 }
