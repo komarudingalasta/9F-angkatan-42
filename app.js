@@ -132,6 +132,7 @@ function setSync(text,ok=true){$("syncText").textContent=text;$("syncDot").style
 
 document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>showPage(b.dataset.page));
 function showPage(page){
+  setTimeout(()=>syncStudentBottom(page),0);
   document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
   const target=$(page+"Page");
   if(!target){console.error("Halaman tidak ditemukan:",page);return}
@@ -832,4 +833,15 @@ function renderAttendanceCalendar(){
   h += Array(first).fill('<div></div>').join("");
   for(let d=1;d<=days;d++){let k=`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`,s=map[k]||"";h+=`<div class="att-day ${escapeAttr(s)}" title="${escapeAttr(s||"Belum tercatat")}">${d}</div>`}
   el.innerHTML=h;
+}
+
+document.querySelectorAll("[data-student-go]").forEach(b=>b.addEventListener("click",()=>{
+  showPage(b.dataset.studentGo);
+  closeSidebar();
+}));
+function syncStudentBottom(page){
+ const n=$("studentBottomNav"); if(!n)return;
+ const student=!!(currentProfile&&currentProfile.role==="student");
+ n.classList.toggle("hidden",!student);
+ n.querySelectorAll("button").forEach(b=>b.classList.toggle("active",b.dataset.studentGo===page));
 }

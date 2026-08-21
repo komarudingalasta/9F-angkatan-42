@@ -275,3 +275,52 @@ body.auth-locked #sidebarToggle{
  .attendance-calendar{gap:5px}
  .att-day{border-radius:8px}
 }
+
+/* ===== V16.1 STUDENT MOBILE APP ===== */
+@media(max-width:760px){
+ body:has(.student-only:not(.hidden)) .topbar{
+   position:sticky;top:0;z-index:20;background:#fff!important;
+   margin:-12px -12px 12px!important;padding:12px 14px!important;
+   border-bottom:1px solid #edf0f5;display:flex!important;
+   align-items:center!important;justify-content:center!important;min-height:58px
+ }
+ body:has(.student-only:not(.hidden)) .topbar>div:first-child{text-align:center!important}
+ body:has(.student-only:not(.hidden)) .topbar p{display:none}
+ body:has(.student-only:not(.hidden)) #menuBtn{
+   position:absolute!important;left:14px!important;top:12px!important;
+   width:38px!important;height:38px!important;padding:0!important;
+   font-size:0!important;border:0!important;background:transparent!important
+ }
+ body:has(.student-only:not(.hidden)) #menuBtn:after{
+   content:"☰";font-size:23px;color:#14213d
+ }
+ body:has(.student-only:not(.hidden)) .main{padding-top:12px!important}
+ body:has(.student-only:not(.hidden)) .sidebar .group-label,
+ body:has(.student-only:not(.hidden)) .sidebar .admin-only{display:none!important}
+ body:has(.student-only:not(.hidden)) .sidebar{
+   width:min(82vw,330px)!important;padding:22px 16px!important
+ }
+ body:has(.student-only:not(.hidden)) .sidebar .brand{margin-bottom:24px}
+ body:has(.student-only:not(.hidden)) .sidebar .nav.student-only{
+   display:flex!important;margin:8px 0!important;padding:15px 16px!important;
+   border-radius:14px!important;font-size:14px!important
+ }
+ body:has(.student-only:not(.hidden)) .sidebar-foot{margin-top:auto}
+ .student-summary{border-radius:18px!important}
+ .student-summary .hero-mini{grid-template-columns:1fr 1fr!important}
+ .student-summary .hero-score strong{font-size:36px!important}
+ #studentAcademicV15Page .v15-section,
+ #studentAttendanceV15Page .v15-section{box-shadow:0 7px 24px rgba(18,53,94,.06)!important}
+ #studentAcademicV15Page .v15-insights .card{border-radius:15px!important}
+}
+.student-bottom-nav{display:none}
+@media(max-width:760px){
+ .student-bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:18;
+ display:flex;background:#fff;border-top:1px solid #e7ebf1;padding:7px 12px 9px;
+ box-shadow:0 -5px 18px rgba(15,43,77,.06)}
+ .student-bottom-nav button{flex:1;border:0;background:transparent;padding:5px;
+ color:#7b8799;font-weight:700;font-size:10px}
+ .student-bottom-nav button b{display:block;font-size:18px;margin-bottom:2px}
+ .student-bottom-nav button.active{color:#1767df}
+ body:has(.student-only:not(.hidden)) main{padding-bottom:78px!important}
+}
