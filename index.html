@@ -56,12 +56,12 @@
 
       <nav>
         <button class="nav admin-only active" data-page="dashboard">⌂ <span>Dashboard</span></button>
-        <button class="nav student-only hidden" data-page="myGrades">◔ <span>Nilai Saya</span></button>
-        <button class="nav student-only hidden" data-page="studentHome"><span>⌂</span> Beranda Saya</button>
-        <button class="nav student-only hidden" data-page="studentProgress"><span>↗</span> Grafik Perkembangan</button>
-        <button class="nav student-only hidden" data-page="studentAnalysis"><span>◎</span> Analisis Saya</button>
-        <button class="nav student-only hidden" data-page="studentCompare"><span>⇄</span> Perbandingan Kelas</button>
-        <button class="nav student-only hidden" data-page="studentRank"><span>★</span> Posisi Akademik Saya</button>
+        
+        
+        
+        
+        
+        
 
         <div class="nav-label admin-only">DATA AKADEMIK</div>
         <button class="nav admin-only" data-page="upload">⇧ <span>Upload Leger</span></button>
@@ -73,6 +73,9 @@
         <button class="nav admin-only" data-page="subjects">◫ <span>Analisis Mapel</span></button>
 
         <div class="nav-label admin-only">PENGATURAN</div>
+        <button class="nav student-only hidden" data-page="studentAcademicV15"><span>▥</span> Akademik</button>
+        <button class="nav student-only hidden" data-page="studentAttendanceV15"><span>✓</span> Kehadiran</button>
+        <button class="nav admin-only" data-page="attendance"><span>✓</span> Kehadiran</button>
         <button class="nav admin-only" data-page="settings">⚙ <span>Pengaturan</span></button>
       </nav>
 
@@ -315,7 +318,20 @@
           </div>
         </article>
       </section>
-    </main>
+    <section id="studentAcademicV15Page" class="page hidden student-page">
+<div class="v15-hero"><div><span class="eyebrow">AKADEMIK SAYA</span><h2 id="v15Name">—</h2><p id="v15Meta">—</p></div><span id="v15Growth" class="v15-pill">Perkembangan</span></div>
+<div class="v15-kpis"><article><span>Rata-rata Terbaru</span><strong id="v15Latest">—</strong><small id="v15Delta">—</small></article><article><span>Rata-rata Gabungan</span><strong id="v15Combined">—</strong><small>Seluruh semester</small></article><article><span>Posisi Akademik</span><strong id="v15Position">—</strong><small>Kelompok kelas saat ini</small></article></div>
+<div class="card v15-section"><div class="section-head"><div><span class="eyebrow">PERKEMBANGAN</span><h3>Perjalanan Akademik</h3></div><select id="v15Metric"></select></div><div class="chart-wrap v15-chart"><canvas id="v15Chart"></canvas></div><p class="v15-help">Angka pada titik menunjukkan nilai setiap semester. Garis pembanding menunjukkan rata-rata kelompok.</p></div>
+<div class="card v15-section"><div class="section-head"><div><span class="eyebrow">NILAI SAYA</span><h3>Nilai Mata Pelajaran</h3></div><select id="v15Semester"></select></div><div id="v15Grades"></div></div>
+<div class="v15-insights"><article class="card"><span class="eyebrow">KEKUATAN</span><h3 id="v15Strong">—</h3><b id="v15StrongVal">—</b></article><article class="card"><span class="eyebrow">PALING BERKEMBANG</span><h3 id="v15Improve">—</h3><b id="v15ImproveVal">—</b></article><article class="card"><span class="eyebrow">FOKUS BERIKUTNYA</span><h3 id="v15Focus">—</h3><b id="v15FocusVal">—</b></article></div>
+<div class="card v15-section"><span class="eyebrow">POSISI AKADEMIK</span><h3>Perkembangan Posisi</h3><div id="v15Journey" class="v15-journey"></div><p class="v15-help">Posisi setiap semester dibandingkan dengan kelompok siswa yang berada di kelas saat ini.</p></div></section>
+
+<section id="studentAttendanceV15Page" class="page hidden student-page"><div class="v15-hero"><div><span class="eyebrow">KEHADIRAN SAYA</span><h2 id="attName">—</h2><p>Rekap kehadiran dan pengajuan ketidakhadiran.</p></div><button class="primary" id="leaveBtn">+ Ajukan Izin / Sakit</button></div><div class="v15-kpis"><article><span>Kehadiran</span><strong id="attRate">—</strong><small>Persentase hadir</small></article><article><span>Hadir</span><strong id="attH">0</strong><small>hari</small></article><article><span>Sakit / Izin / Alpa</span><strong id="attSIA">0 / 0 / 0</strong><small>S / I / A</small></article></div><div class="card v15-section"><span class="eyebrow">RIWAYAT</span><h3>Kehadiran Saya</h3><div id="attHistory" class="empty">Belum ada data kehadiran.</div></div><div class="card v15-section"><span class="eyebrow">PENGAJUAN</span><h3>Izin & Sakit</h3><div id="leaveHistory" class="empty">Belum ada pengajuan.</div></div></section>
+
+<section id="attendancePage" class="page hidden"><div class="v15-hero"><div><span class="eyebrow">KEHADIRAN</span><h2>Kehadiran Kelas</h2><p>Absensi harian, pengajuan, upload, dan koreksi.</p></div></div><div class="v15-actions"><button class="action-card" id="camBtn"><b>📷 Kamera Absensi</b><span>Mode kamera absensi</span></button><button class="action-card" id="uploadAttBtn"><b>⇧ Upload Kehadiran</b><span>Import Excel harian/bulanan</span></button><button class="action-card" id="manualAttBtn"><b>✎ Input Manual</b><span>Tambah atau koreksi data</span></button></div><div class="card v15-section"><span class="eyebrow">PENGAJUAN</span><h3>Menunggu Persetujuan</h3><div id="adminLeaves" class="empty">Belum ada pengajuan.</div></div></section>
+
+<div id="leaveModal" class="modal hidden"><div class="modal-card"><div class="section-head"><h3>Ajukan Izin / Sakit</h3><button id="leaveClose" class="icon-btn">×</button></div><label>Jenis<select id="leaveType"><option>Sakit</option><option>Izin</option></select></label><label>Tanggal mulai<input id="leaveStart" type="date"></label><label>Tanggal selesai<input id="leaveEnd" type="date"></label><label>Keterangan<textarea id="leaveNote" rows="3"></textarea></label><button class="primary" id="leaveSubmit">Kirim Pengajuan</button><div id="leaveMsg"></div></div></div>
+</main>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
