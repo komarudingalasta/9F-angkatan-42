@@ -265,3 +265,12 @@ Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya 
 - Student success banner hidden to reduce clutter.
 - Academic-position history now compares each semester against the CURRENT CLASS cohort, not the student's historical class.
 - Missing cohort ranks display as — instead of misleading rank 0.
+
+
+## V17 — Correct Current-Class Academic Position
+- Fixed `addDoc` Firestore import for leave requests.
+- Academic position is precomputed by admin using each student's **current class cohort**.
+- Historical semester positions compare the student with classmates who are in the same class **now**, using those classmates' scores from that historical semester.
+- Student accounts read only their own `records` and `studentSummaries`; they do not need access to classmates' private grades.
+- Existing legacy summaries are automatically rebuilt when an admin logs in.
+- Student chart and subject comparisons now use `studentSummaries` instead of attempting to calculate from inaccessible peer records.

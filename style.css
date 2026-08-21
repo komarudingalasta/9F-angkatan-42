@@ -348,3 +348,14 @@ body.auth-locked #sidebarToggle{
  .position-change{display:inline-block;margin-top:8px;padding:6px 9px;border-radius:999px;
    background:#e9f8ee;color:#15803d;font-size:10px;font-weight:800}
 }
+
+/* ===== V17 FINAL STUDENT POLISH ===== */
+@media(max-width:760px){
+ body:has(.student-only:not(.hidden)) .topbar{height:58px!important;min-height:58px!important}
+ body:has(.student-only:not(.hidden)) #menuBtn{
+   display:grid!important;place-items:center!important;left:8px!important;top:8px!important;
+   border-radius:12px!important
+ }
+ body:has(.student-only:not(.hidden)) .student-summary{margin-top:4px!important}
+ body:has(.student-only:not(.hidden)) #pageTitle{line-height:38px!important}
+}

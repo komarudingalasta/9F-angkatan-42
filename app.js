@@ -7,7 +7,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc,
-  writeBatch, serverTimestamp, query, where
+  writeBatch, serverTimestamp, query, where, addDoc
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 const $=id=>document.getElementById(id);
@@ -207,7 +207,7 @@ async function reloadData(){
 
       // One summary is expected for every student-semester record.
       // Automatically repair missing/old summary collections.
-      if(records.length && studentSummaries.length !== records.length){
+      if(records.length && (studentSummaries.length !== records.length || studentSummaries.some(s=>s.cohortMode!=="current_class"))){
         setSync("Memperbarui posisi…");
         await rebuildStudentSummaries();
         const repaired=await getDocs(collection(db,"studentSummaries"));
@@ -530,41 +530,68 @@ function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>f
 
 async function rebuildStudentSummaries(){
   if(currentProfile?.role!=="admin")return;
-  const byClassSemester=new Map();
+
+  // Tentukan kelas aktif setiap siswa dari semester paling baru.
+  const byNis=new Map();
   records.forEach(r=>{
-    const k=`${r.kelas}|||${r.semester}`;
-    if(!byClassSemester.has(k))byClassSemester.set(k,[]);
-    byClassSemester.get(k).push(r);
+    const nis=String(r.nis||"").trim();
+    if(!nis)return;
+    if(!byNis.has(nis))byNis.set(nis,[]);
+    byNis.get(nis).push(r);
   });
+  const currentClassByNis=new Map();
+  byNis.forEach((rows,nis)=>{
+    const latest=[...rows].sort((a,b)=>semesterRank(a.semester)-semesterRank(b.semester)).at(-1);
+    if(latest?.kelas)currentClassByNis.set(nis,latest.kelas);
+  });
+
   const items=[];
-  for(const [groupKey,list] of byClassSemester){
-    const [kelas,semester]=groupKey.split("|||");
-    const ss=subjectKeys(list);
-    const subjectAverages={};
-    ss.forEach(s=>subjectAverages[s]=avg(list.map(r=>r.scores?.[s])));
-    const classReportAverage=avg(list.map(rowAvg));
-    const ranked=[...list].map(r=>({r,avg:rowAvg(r)})).sort((a,b)=>b.avg-a.avg||String(a.r.nama).localeCompare(String(b.r.nama)));
-    let lastAvg=null,lastRank=0;
-    ranked.forEach((entry,index)=>{
-      const rank=(lastAvg!==null&&Math.abs(entry.avg-lastAvg)<0.0001)?lastRank:index+1;
-      lastAvg=entry.avg;lastRank=rank;
-      const id=`${slug(entry.r.nis||entry.r.nama)}_${slug(kelas)}_${slug(semester)}`.slice(0,220);
+  for(const [nis,studentRows] of byNis){
+    const currentClass=currentClassByNis.get(nis);
+    if(!currentClass)continue;
+    const cohortNis=[...currentClassByNis.entries()].filter(([,k])=>k===currentClass).map(([n])=>n);
+
+    for(const r of studentRows){
+      // Pembanding semester ini adalah siswa yang SEKARANG satu kelas,
+      // lalu ambil nilai mereka pada semester yang sama, apa pun kelas lamanya.
+      const cohortRows=cohortNis.map(peerNis=>{
+        const rows=byNis.get(peerNis)||[];
+        return rows.find(x=>x.semester===r.semester);
+      }).filter(Boolean).filter(x=>rowAvg(x)>0);
+
+      const ss=subjectKeys(cohortRows,false);
+      const subjectAverages={};
+      ss.forEach(s=>{
+        const vals=cohortRows.map(x=>Number(x.scores?.[s])).filter(Number.isFinite);
+        subjectAverages[s]=vals.length?avg(vals):null;
+      });
+      const classReportAverage=cohortRows.length?avg(cohortRows.map(rowAvg)):null;
+      const ranked=cohortRows.map(x=>({nis:String(x.nis),a:rowAvg(x),nama:x.nama||""}))
+        .sort((a,b)=>b.a-a.a||a.nama.localeCompare(b.nama));
+      let rank=null,lastAvg=null,lastRank=0;
+      ranked.forEach((x,index)=>{
+        const rr=(lastAvg!==null&&Math.abs(x.a-lastAvg)<0.0001)?lastRank:index+1;
+        lastAvg=x.a;lastRank=rr;
+        if(x.nis===nis)rank=rr;
+      });
+
+      const id=`${slug(nis)}_${slug(currentClass)}_${slug(r.semester)}`.slice(0,220);
       items.push({id,data:{
-        nis:entry.r.nis,nama:entry.r.nama,kelas,semester,
-        studentAverage:entry.avg,
+        nis,nama:r.nama||"",kelas:currentClass,semester:r.semester,
+        sourceClass:r.kelas||"",
+        studentAverage:rowAvg(r),
         classReportAverage,
         subjectAverages,
         rank,
         classSize:ranked.length,
+        cohortMode:"current_class",
         updatedAt:serverTimestamp()
       }});
-    });
+    }
   }
   await deleteCollectionDocs("studentSummaries");
   await batchSet("studentSummaries",items);
 }
-
-
 let studentProgressChartInstance=null;
 
 function myOrderedRecords(){
@@ -813,11 +840,12 @@ document.querySelectorAll(".sidebar .nav[data-page]").forEach(btn=>btn.addEventL
 let v15ChartObj=null,attRows=[],leaveRows=[];
 function mineV15(){return records.filter(r=>String(r.nis)===String(currentProfile?.nis)).sort((a,b)=>semesterRank(a.semester)-semesterRank(b.semester))}
 function classNow(){return currentProfile?.kelas||mineV15().at(-1)?.kelas||"-"}
-function cohortV15(){const c=classNow(),ids=new Set(records.filter(r=>r.kelas===c).map(r=>String(r.nis)));return records.filter(r=>ids.has(String(r.nis)))}
-function posV15(sem,val){const vals=[...grouped(cohortV15().filter(r=>r.semester===sem)).values()].map(g=>avg(g.map(rowAvg))).sort((a,b)=>b-a);let x=vals.findIndex(v=>v<=val+.001);return {p:x<0?vals.length:x+1,n:vals.length}}
-function renderAcademicV15(){const rows=mineV15();if(!rows.length)return;const last=rows.at(-1),prev=rows.at(-2),la=rowAvg(last),pa=prev?rowAvg(prev):la,d=la-pa,p=posV15(last.semester,la);$("v16Greeting").textContent=`Selamat datang, ${(currentProfile.name||last.nama||"Siswa").split(" ")[0]} 👋`;$("v15Meta").textContent=`NIS ${currentProfile.nis} · Kelas ${classNow()}`;$("v15Latest").textContent=fmt(la);$("v15Combined").textContent=fmt(avg(rows.map(rowAvg)));$("v15Delta").textContent=prev?`${d>=0?"↑":"↓"} ${fmt(Math.abs(d))} dari semester sebelumnya`:"Semester pertama";$("v15Position").textContent=p.n?`${p.p} / ${p.n}`:"—";if($("v15Growth")) $("v15Growth").textContent=d>=2?"Meningkat":d<=-2?"Perlu perhatian":"Stabil";const subs=subjectKeys(rows,false),metric=$("v15Metric"),old=metric.value;metric.innerHTML='<option value="AVG">Rata-rata Rapor</option>'+subs.map(s=>`<option value="${escapeAttr(s)}">${escapeHtml(subjectLabel(s))}</option>`).join("");if([...metric.options].some(o=>o.value===old))metric.value=old;metric.onchange=drawV15;const sel=$("v15Semester"),os=sel.value;sel.innerHTML=rows.map(r=>`<option>${escapeHtml(r.semester)}</option>`).join("");sel.value=rows.some(r=>r.semester===os)?os:last.semester;sel.onchange=gradesV15;drawV15();gradesV15();let vals=subs.map(s=>({s,v:Number(last.scores?.[s])})).filter(x=>Number.isFinite(x.v)).sort((a,b)=>b.v-a.v);$("v15Strong").textContent=vals[0]?subjectLabel(vals[0].s):"—";$("v15StrongVal").textContent=vals[0]?fmt(vals[0].v):"—";$("v15Focus").textContent=vals.at(-1)?subjectLabel(vals.at(-1).s):"—";$("v15FocusVal").textContent=vals.at(-1)?fmt(vals.at(-1).v):"—";let inc=[];if(prev)subs.forEach(s=>{let a=Number(prev.scores?.[s]),b=Number(last.scores?.[s]);if(Number.isFinite(a)&&Number.isFinite(b))inc.push({s,d:b-a})});inc.sort((a,b)=>b.d-a.d);$("v15Improve").textContent=inc[0]?subjectLabel(inc[0].s):"—";$("v15ImproveVal").textContent=inc[0]?`${inc[0].d>=0?"+":""}${fmt(inc[0].d)} poin`:"Belum ada pembanding";$("v15Journey").innerHTML=rows.map(r=>{let q=posV15(r.semester,rowAvg(r));return `<div class="v15-step"><span>${escapeHtml(r.semester)}</span><b>#${q.p}</b><small>${fmt(rowAvg(r))}</small></div>`}).join("")}
-function drawV15(){const rows=mineV15(),m=$("v15Metric").value,co=cohortV15(),mine=rows.map(r=>m==="AVG"?rowAvg(r):Number(r.scores?.[m])),grp=rows.map(r=>{let a=co.filter(x=>x.semester===r.semester);return m==="AVG"?avg(a.map(rowAvg)):avg(a.map(x=>x.scores?.[m]))});if(v15ChartObj)v15ChartObj.destroy();v15ChartObj=new Chart($("v15Chart"),{type:"line",data:{labels:rows.map(r=>r.semester),datasets:[{label:"Nilai Saya",data:mine,tension:.35,pointRadius:5},{label:"Rata-rata Kelompok",data:grp,tension:.35,borderDash:[6,5],pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:20}},scales:{y:{suggestedMin:0,suggestedMax:100}}}})}
-function gradesV15(){let r=mineV15().find(x=>x.semester===$("v15Semester").value);if(!r)return;let co=cohortV15().filter(x=>x.semester===r.semester),subs=subjectKeys([r],false);$("v15Grades").innerHTML=`<table class="v15-table"><thead><tr><th>Mata Pelajaran</th><th>Nilai Saya</th><th>Rata-rata Kelompok</th><th>Selisih</th></tr></thead><tbody>${subs.map(s=>{let a=Number(r.scores?.[s]),g=avg(co.map(x=>x.scores?.[s])),d=a-g;return `<tr><td>${escapeHtml(subjectLabel(s))}</td><td class="num">${fmt(a)}</td><td class="num">${fmt(g)}</td><td class="num">${d>=0?"+":""}${fmt(d)}</td></tr>`}).join("")}</tbody></table>`}
+function summaryV17(sem){return studentSummaries.find(s=>String(s.semester)===String(sem));}
+function cohortV15(){return [];} // V17: siswa tidak membaca nilai siswa lain.
+function posV15(sem,val){const s=summaryV17(sem);return {p:s?.rank??null,n:s?.classSize??0};}
+function renderAcademicV15(){const rows=mineV15();if(!rows.length)return;const last=rows.at(-1),prev=rows.at(-2),la=rowAvg(last),pa=prev?rowAvg(prev):la,d=la-pa,p=posV15(last.semester,la);$("v16Greeting").textContent=`Selamat datang, ${(currentProfile.name||last.nama||"Siswa").split(" ")[0]} 👋`;$("v15Meta").textContent=`NIS ${currentProfile.nis} · Kelas ${classNow()}`;$("v15Latest").textContent=fmt(la);$("v15Combined").textContent=fmt(avg(rows.map(rowAvg)));$("v15Delta").textContent=prev?`${d>=0?"↑":"↓"} ${fmt(Math.abs(d))} dari semester sebelumnya`:"Semester pertama";$("v15Position").textContent=p.n?`${p.p} / ${p.n}`:"—";if($("v15Growth")) $("v15Growth").textContent=d>=2?"Meningkat":d<=-2?"Perlu perhatian":"Stabil";const subs=subjectKeys(rows,false),metric=$("v15Metric"),old=metric.value;metric.innerHTML='<option value="AVG">Rata-rata Rapor</option>'+subs.map(s=>`<option value="${escapeAttr(s)}">${escapeHtml(subjectLabel(s))}</option>`).join("");if([...metric.options].some(o=>o.value===old))metric.value=old;metric.onchange=drawV15;const sel=$("v15Semester"),os=sel.value;sel.innerHTML=rows.map(r=>`<option>${escapeHtml(r.semester)}</option>`).join("");sel.value=rows.some(r=>r.semester===os)?os:last.semester;sel.onchange=gradesV15;drawV15();gradesV15();let vals=subs.map(s=>({s,v:Number(last.scores?.[s])})).filter(x=>Number.isFinite(x.v)).sort((a,b)=>b.v-a.v);$("v15Strong").textContent=vals[0]?subjectLabel(vals[0].s):"—";$("v15StrongVal").textContent=vals[0]?fmt(vals[0].v):"—";$("v15Focus").textContent=vals.at(-1)?subjectLabel(vals.at(-1).s):"—";$("v15FocusVal").textContent=vals.at(-1)?fmt(vals.at(-1).v):"—";let inc=[];if(prev)subs.forEach(s=>{let a=Number(prev.scores?.[s]),b=Number(last.scores?.[s]);if(Number.isFinite(a)&&Number.isFinite(b))inc.push({s,d:b-a})});inc.sort((a,b)=>b.d-a.d);$("v15Improve").textContent=inc[0]?subjectLabel(inc[0].s):"—";$("v15ImproveVal").textContent=inc[0]?`${inc[0].d>=0?"+":""}${fmt(inc[0].d)} poin`:"Belum ada pembanding";$("v15Journey").innerHTML=rows.map(r=>{let q=posV15(r.semester,rowAvg(r));return `<div class="v15-step"><span>${escapeHtml(r.semester)}</span><b>${q.p?"#"+q.p:"—"}</b><small>${fmt(rowAvg(r))}${q.n?" · "+q.n+" siswa":""}</small></div>`}).join("")}
+function drawV15(){const rows=mineV15(),m=$("v15Metric").value,mine=rows.map(r=>m==="AVG"?rowAvg(r):Number(r.scores?.[m])),grp=rows.map(r=>{const s=summaryV17(r.semester);return m==="AVG"?Number(s?.classReportAverage):Number(s?.subjectAverages?.[m]);});if(v15ChartObj)v15ChartObj.destroy();v15ChartObj=new Chart($("v15Chart"),{type:"line",data:{labels:rows.map(r=>r.semester),datasets:[{label:"Nilai Saya",data:mine,tension:.35,pointRadius:5},{label:"Rata-rata Kelompok",data:grp,tension:.35,borderDash:[6,5],pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:20}},scales:{y:{suggestedMin:0,suggestedMax:100}}}})}
+function gradesV15(){let r=mineV15().find(x=>x.semester===$("v15Semester").value);if(!r)return;let sum=summaryV17(r.semester),subs=subjectKeys([r],false);$("v15Grades").innerHTML=`<table class="v15-table"><thead><tr><th>Mata Pelajaran</th><th>Nilai Saya</th><th>Rata-rata Kelompok</th><th>Selisih</th></tr></thead><tbody>${subs.map(s=>{let a=Number(r.scores?.[s]),g=Number(sum?.subjectAverages?.[s]),d=a-g;return `<tr><td>${escapeHtml(subjectLabel(s))}</td><td class="num">${fmt(a)}</td><td class="num">${Number.isFinite(g)?fmt(g):"—"}</td><td class="num">${Number.isFinite(d)?(d>=0?"+":"")+fmt(d):"—"}</td></tr>`}).join("")}</tbody></table>`}
 async function loadAtt(student=true){attRows=[];leaveRows=[];try{if(student){let a=await getDocs(query(collection(db,"attendance"),where("nis","==",String(currentProfile.nis))));attRows=a.docs.map(d=>({id:d.id,...d.data()}));let l=await getDocs(query(collection(db,"leaveRequests"),where("nis","==",String(currentProfile.nis))));leaveRows=l.docs.map(d=>({id:d.id,...d.data()}))}else{let l=await getDocs(collection(db,"leaveRequests"));leaveRows=l.docs.map(d=>({id:d.id,...d.data()}))}}catch(e){console.warn(e)}}
 async function renderAttendanceV15(){await loadAtt(true);$("attName").textContent=currentProfile.name||`NIS ${currentProfile.nis}`;let h=attRows.filter(x=>x.status==="Hadir").length,s=attRows.filter(x=>x.status==="Sakit").length,i=attRows.filter(x=>x.status==="Izin").length,a=attRows.filter(x=>x.status==="Alpa").length,t=h+s+i+a;$("attRate").textContent=t?Math.round(h/t*100)+"%":"—";$("attH").textContent=h;$("attSIA").textContent=`${s} / ${i} / ${a}`;$("attHistory").innerHTML=attRows.length?attRows.map(x=>`<div class="metric-row"><div><b>${escapeHtml(x.date||"-")}</b></div><span class="badge">${escapeHtml(x.status||"-")}</span></div>`).join(""):'<div class="empty">Belum ada data kehadiran.</div>';renderAttendanceCalendar();$("leaveHistory").innerHTML=leaveRows.length?leaveRows.map(x=>`<div class="metric-row"><div><b>${escapeHtml(x.type)} · ${escapeHtml(x.startDate)}</b><small>${escapeHtml(x.note||"")}</small></div><span class="badge">${escapeHtml(x.status||"Menunggu")}</span></div>`).join(""):'<div class="empty">Belum ada pengajuan.</div>'}
 $("leaveBtn").onclick=()=>$("leaveModal").classList.remove("hidden");$("leaveClose").onclick=()=>$("leaveModal").classList.add("hidden");$("leaveSubmit").onclick=async()=>{let startDate=$("leaveStart").value;if(!startDate)return setMessage("leaveMsg","Tanggal wajib diisi.",true);try{await addDoc(collection(db,"leaveRequests"),{nis:String(currentProfile.nis),name:currentProfile.name||"",kelas:classNow(),type:$("leaveType").value,startDate,endDate:$("leaveEnd").value||startDate,note:$("leaveNote").value.trim(),status:"Menunggu",createdAt:new Date().toISOString()});setMessage("leaveMsg","Pengajuan berhasil dikirim.");setTimeout(()=>{$("leaveModal").classList.add("hidden");renderAttendanceV15()},400)}catch(e){setMessage("leaveMsg","Pengajuan belum dapat disimpan.",true)}}
