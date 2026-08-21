@@ -153,6 +153,8 @@ function showPage(page){
     studentRank:["Posisi Akademik Saya","Perkembangan posisi dibanding kelompok kelas saat ini"]
   }[page]||[page,""];
   $("pageTitle").textContent=meta[0];$("pageSubtitle").textContent=meta[1];
+  if(page==="studentAcademicV15"){ $("pageTitle").textContent="Akademik"; $("pageSubtitle").textContent="Perkembangan akademik saya"; }
+  if(page==="studentAttendanceV15"){ $("pageTitle").textContent="Kehadiran"; $("pageSubtitle").textContent="Rekap dan pengajuan ketidakhadiran"; }
   if(page==="records")renderTable();
   if(page==="pulse")renderPulse("pulseGrid");
   if(page==="students")renderStudentList();
