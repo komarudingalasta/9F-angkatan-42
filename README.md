@@ -292,8 +292,15 @@ Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya 
 
 
 ## V17.3
-- Grafik perkembangan siswa hanya menampilkan nilai siswa; garis rata-rata kelompok dihapus.
-- Nilai angka tetap terlihat pada titik grafik melalui plugin label yang sudah ada.
-- Tabel Nilai Saya diperbaiki agar tidak keluar dari kartu.
-- Di layar HP, tabel Nilai Saya berubah menjadi kartu per mata pelajaran agar lebih mudah dibaca.
-- Rata-rata kelompok tetap tersedia di bagian Nilai Saya sebagai pembanding.
+- Nilai Mata Pelajaran tidak lagi melewati card pada layar HP; tabel berubah menjadi daftar kartu responsif.
+- Grafik perkembangan akademik hanya menampilkan nilai siswa.
+- Garis rata-rata kelompok/kelas dihapus dari grafik agar lebih sederhana.
+- Rata-rata kelas tetap tersedia pada detail Nilai Mata Pelajaran sebagai pembanding.
+
+
+## V17.4
+- Bottom navigation Akademik/Kehadiran dipertahankan dan tidak hilang saat Akademik ditekan.
+- Halaman siswa langsung membuka Akademik setelah data selesai dimuat.
+- Memperbaiki bug Akademik yang dirender terlalu cepat sehingga hanya menampilkan tanda strip.
+- Ditambahkan empty/loading state yang aman jika data memang belum tersedia.
+- Navigasi bawah dipaksa tetap terlihat pada student mode.

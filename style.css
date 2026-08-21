@@ -471,88 +471,65 @@ body.auth-locked #sidebarToggle{
 }
 body:not(.student-mode) .student-bottom-nav{display:none!important}
 
-/* ===== V17.3 NILAI & GRAFIK POLISH ===== */
-.v17-grades-scroll{
-  width:100%;
-  max-width:100%;
-  overflow:hidden;
-}
-.v17-grades-table{
-  width:100%;
-  max-width:100%;
-  table-layout:fixed;
-}
-.v17-grades-table th,
-.v17-grades-table td{
-  overflow-wrap:anywhere;
-  word-break:normal;
-}
-.v17-grades-table th:first-child,
-.v17-grades-table td:first-child{
-  width:40%;
-}
-.v17-grades-table th:not(:first-child),
-.v17-grades-table td:not(:first-child){
-  width:20%;
-}
-#studentAcademicV15Page .v15-chart{
-  overflow:hidden;
-}
-#studentAcademicV15Page canvas{
-  max-width:100%!important;
+/* ===== V17.3 ACADEMIC MOBILE TABLE + SINGLE-LINE CHART ===== */
+.v15-section,.card{min-width:0}
+#v15Grades{max-width:100%;overflow:hidden}
+#v15Grades table{width:100%;max-width:100%;table-layout:fixed}
+#v15Grades th,#v15Grades td{overflow-wrap:anywhere;word-break:normal}
+@media(max-width:760px){
+  #v15Grades{overflow:visible!important}
+  #v15Grades table,#v15Grades tbody,#v15Grades tr,#v15Grades td{
+    display:block;width:100%!important;max-width:100%!important;
+  }
+  #v15Grades thead{display:none}
+  #v15Grades table{border:0!important}
+  #v15Grades tr{
+    box-sizing:border-box;margin:0 0 9px;padding:11px 12px;
+    border:1px solid #e7ebf1;border-radius:13px;background:#fff;
+  }
+  #v15Grades td{
+    box-sizing:border-box;border:0!important;padding:3px 0!important;
+    text-align:left!important;white-space:normal!important;
+  }
+  #v15Grades td:first-child{
+    font-weight:800;font-size:12px;color:#17223b;margin-bottom:4px;
+  }
+  #v15Grades td:nth-child(2){
+    font-size:19px;font-weight:900;color:#1767df;
+  }
+  #v15Grades td:nth-child(2)::before{
+    content:"Nilai  ";font-size:9px;font-weight:700;color:#7b8797;
+  }
+  #v15Grades td:nth-child(3),#v15Grades td:nth-child(4){
+    display:inline-block!important;width:auto!important;margin-right:12px;
+    font-size:9px;color:#7b8797;
+  }
+  #v15Grades td:nth-child(3)::before{content:"Rata-rata kelas: "}
+  #v15Grades td:nth-child(4)::before{content:"Selisih: "}
+  #v15Grades td:nth-child(3),#v15Grades td:nth-child(4){font-weight:700}
+  .v15-chart{width:100%!important;max-width:100%!important;overflow:hidden}
+  .v15-chart canvas{max-width:100%!important}
 }
 
-@media(max-width:600px){
-  .v17-grades-scroll{
-    overflow:visible;
+/* ===== V17.4 BOTTOM NAV + ACADEMIC INITIAL LOAD FIX ===== */
+@media(max-width:760px){
+  body.student-mode #studentBottomNav{
+    display:flex!important;
+    visibility:visible!important;
+    opacity:1!important;
+    pointer-events:auto!important;
   }
-  .v17-grades-table,
-  .v17-grades-table tbody,
-  .v17-grades-table tr,
-  .v17-grades-table td{
-    display:block;
-    width:100%!important;
+  body.student-mode .student-bottom-nav{
+    display:flex!important;
+    position:fixed!important;
+    left:0!important;right:0!important;bottom:0!important;
+    z-index:999!important;
   }
-  .v17-grades-table thead{
-    display:none;
+  body.student-mode .main{
+    padding-bottom:88px!important;
   }
-  .v17-grades-table tr{
-    margin:0 0 10px;
-    padding:12px 13px;
-    border:1px solid var(--line);
-    border-radius:13px;
-    background:#fafcff;
-  }
-  .v17-grades-table td{
-    border:0!important;
-    padding:5px 0!important;
-    display:grid;
-    grid-template-columns:minmax(0,1fr) auto;
-    gap:12px;
-    align-items:center;
-    text-align:right!important;
-  }
-  .v17-grades-table td:before{
-    content:attr(data-label);
-    text-align:left;
-    color:var(--muted);
-    font-size:9px;
-    font-weight:700;
-  }
-  .v17-grades-table td:first-child{
-    display:block;
-    text-align:left!important;
-    padding-bottom:9px!important;
-    margin-bottom:4px;
-    border-bottom:1px solid var(--line)!important;
-    font-size:12px;
-    font-weight:800;
-  }
-  .v17-grades-table td:first-child:before{
-    display:none;
-  }
-  #studentAcademicV15Page .v15-chart{
-    height:230px!important;
-    min-height:230px!important;
+  body.student-mode #studentAcademicV15Page,
+  body.student-mode #studentAttendanceV15Page{
+    min-height:calc(100dvh - 88px);
   }
 }
