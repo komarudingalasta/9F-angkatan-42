@@ -359,3 +359,102 @@ body.auth-locked #sidebarToggle{
  body:has(.student-only:not(.hidden)) .student-summary{margin-top:4px!important}
  body:has(.student-only:not(.hidden)) #pageTitle{line-height:38px!important}
 }
+
+/* ===== V17.1 STUDENT NAVIGATION SIMPLIFICATION ===== */
+@media(max-width:760px){
+  body:has(.student-only:not(.hidden)) .topbar{
+    display:none!important;
+  }
+  body:has(.student-only:not(.hidden)) .main{
+    padding-top:12px!important;
+  }
+  body:has(.student-only:not(.hidden)) #menuBtn{
+    display:none!important;
+  }
+  body:has(.student-only:not(.hidden)) .sidebar{
+    display:none!important;
+  }
+  body:has(.student-only:not(.hidden)) #sidebarBackdrop{
+    display:none!important;
+  }
+  body:has(.student-only:not(.hidden)) .student-summary{
+    margin-top:0!important;
+  }
+}
+
+/* Student content starts directly with Akademik/Kehadiran */
+#studentAcademicV15Page,#studentAttendanceV15Page{
+  padding-top:0!important;
+}
+
+/* Bottom navigation as the only student menu */
+.student-bottom-nav{
+  display:none;
+}
+@media(max-width:760px){
+  body:has(.student-only:not(.hidden)) .student-bottom-nav{
+    display:flex!important;
+  }
+  .student-bottom-nav{
+    position:fixed;left:0;right:0;bottom:0;z-index:80;
+    background:#fff;border-top:1px solid #e6eaf0;
+    box-shadow:0 -8px 22px rgba(20,45,80,.08);
+    padding:7px max(12px,env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));
+  }
+  .student-bottom-nav button{
+    flex:1;border:0;background:transparent;padding:7px 4px;
+    color:#8a94a6;font-weight:700;font-size:10px;border-radius:12px;
+  }
+  .student-bottom-nav button b{
+    display:block;font-size:19px;line-height:1.1;margin-bottom:3px;
+  }
+  .student-bottom-nav button.active{
+    color:#1767df;background:#eef5ff;
+  }
+}
+
+/* Attendance refinements */
+#studentAttendanceV15Page .v15-hero{
+  display:block!important;
+}
+#studentAttendanceV15Page .v15-hero>div{
+  margin-bottom:14px;
+}
+#studentAttendanceV15Page #leaveBtn{
+  width:100%;
+  min-height:46px;
+  border-radius:13px;
+  font-size:12px;
+}
+.attendance-summary-card{
+  display:grid;
+  grid-template-columns:130px 1fr;
+  gap:16px;
+  align-items:center;
+}
+.attendance-ring{
+  width:120px;height:120px;border-radius:50%;
+  display:grid;place-items:center;
+  background:conic-gradient(#1f9d55 var(--att-rate,0%), #e9edf3 0);
+  position:relative;
+}
+.attendance-ring:after{
+  content:"";position:absolute;width:88px;height:88px;border-radius:50%;background:#fff;
+}
+.attendance-ring>div{position:relative;z-index:1;text-align:center}
+.attendance-ring strong{display:block;font-size:27px;color:#152238}
+.attendance-ring span{font-size:9px;color:#7b8797}
+.attendance-breakdown{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;
+}
+.attendance-breakdown div{
+  border:1px solid #e8ecf2;border-radius:12px;padding:10px;background:#fafcff;
+}
+.attendance-breakdown b{display:block;font-size:18px}
+.attendance-breakdown span{font-size:9px;color:#778295}
+@media(max-width:420px){
+  .attendance-summary-card{grid-template-columns:105px 1fr;gap:10px}
+  .attendance-ring{width:100px;height:100px}
+  .attendance-ring:after{width:74px;height:74px}
+  .attendance-ring strong{font-size:22px}
+}

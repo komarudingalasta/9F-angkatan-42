@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#174b9e">
   <title>PakKom Student Analytics</title>
-  <link rel="stylesheet" href="style.css?v=17">
+  <link rel="stylesheet" href="style.css?v=17.1">
 </head>
 <body>
   <section id="setupScreen" class="center-screen hidden auth-screen">
@@ -329,7 +329,16 @@
 <div class="v15-insights"><article class="card"><span class="eyebrow">KEKUATAN</span><h3 id="v15Strong">—</h3><b id="v15StrongVal">—</b></article><article class="card"><span class="eyebrow">PALING BERKEMBANG</span><h3 id="v15Improve">—</h3><b id="v15ImproveVal">—</b></article><article class="card"><span class="eyebrow">FOKUS BERIKUTNYA</span><h3 id="v15Focus">—</h3><b id="v15FocusVal">—</b></article></div>
 <div class="card v15-section"><span class="eyebrow">POSISI AKADEMIK</span><h3>Perkembangan Posisi</h3><div id="v15Journey" class="v15-journey"></div><p class="position-note">Posisi setiap semester dibandingkan dengan siswa yang berada di <b>kelas saat ini</b> dan memiliki nilai pada semester tersebut.</p><p class="v15-help">Posisi setiap semester dibandingkan dengan kelompok siswa yang berada di kelas saat ini.</p></div></section>
 
-<section id="studentAttendanceV15Page" class="page hidden student-page"><div class="v15-hero"><div><span class="eyebrow">KEHADIRAN SAYA</span><h2 id="attName">—</h2><p>Rekap kehadiran dan pengajuan ketidakhadiran.</p></div><button class="primary" id="leaveBtn">+ Ajukan Izin / Sakit</button></div><div class="v15-kpis"><article><span>Kehadiran</span><strong id="attRate">—</strong><small>Persentase hadir</small></article><article><span>Hadir</span><strong id="attH">0</strong><small>hari</small></article><article><span>Sakit / Izin / Alpa</span><strong id="attSIA">0 / 0 / 0</strong><small>S / I / A</small></article></div><div class="attendance-grid"><div class="card v15-section"><span class="eyebrow">KALENDER</span><h3>Kehadiran Bulanan</h3><div id="attCalendar" class="attendance-calendar"></div><div class="calendar-legend"><span>● Hadir</span><span>● Sakit</span><span>● Izin</span><span>● Alpa</span></div></div><div class="card v15-section"><span class="eyebrow">RIWAYAT</span><h3>Riwayat Ketidakhadiran</h3><div id="attHistory" class="empty">Belum ada data kehadiran.</div></div></div><div class="card v15-section"><span class="eyebrow">PENGAJUAN</span><h3>Izin & Sakit</h3><div id="leaveHistory" class="empty">Belum ada pengajuan.</div></div></section>
+<section id="studentAttendanceV15Page" class="page hidden student-page"><div class="v15-hero"><div><span class="eyebrow">KEHADIRAN</span><h2 id="attName">—</h2><p>Rekap kehadiran, kalender, dan pengajuan izin/sakit.</p></div><button class="primary" id="leaveBtn">+ Ajukan Izin / Sakit</button></div><div class="card v15-section attendance-summary-card">
+      <div class="attendance-ring" id="attRing"><div><strong id="attRate">—</strong><span>Kehadiran</span></div></div>
+      <div class="attendance-breakdown">
+        <div><span>Hadir</span><b id="attH">0</b></div>
+        <div><span>Sakit</span><b id="attS">0</b></div>
+        <div><span>Izin</span><b id="attI">0</b></div>
+        <div><span>Alpa</span><b id="attA">0</b></div>
+      </div>
+    </div>
+    <div class="attendance-grid"><div class="card v15-section"><span class="eyebrow">KALENDER</span><h3>Kehadiran Bulanan</h3><div id="attCalendar" class="attendance-calendar"></div><div class="calendar-legend"><span>● Hadir</span><span>● Sakit</span><span>● Izin</span><span>● Alpa</span></div></div><div class="card v15-section"><span class="eyebrow">RIWAYAT</span><h3>Riwayat Ketidakhadiran</h3><div id="attHistory" class="empty">Belum ada data kehadiran.</div></div></div><div class="card v15-section"><span class="eyebrow">PENGAJUAN</span><h3>Izin & Sakit</h3><div id="leaveHistory" class="empty">Belum ada pengajuan.</div></div></section>
 
 <section id="attendancePage" class="page hidden"><div class="v15-hero"><div><span class="eyebrow">KEHADIRAN</span><h2>Kehadiran Kelas</h2><p>Absensi harian, pengajuan, upload, dan koreksi.</p></div></div><div class="v15-actions"><button class="action-card" id="camBtn"><b>📷 Kamera Absensi</b><span>Mode kamera absensi</span></button><button class="action-card" id="uploadAttBtn"><b>⇧ Upload Kehadiran</b><span>Import Excel harian/bulanan</span></button><button class="action-card" id="manualAttBtn"><b>✎ Input Manual</b><span>Tambah atau koreksi data</span></button></div><div class="card v15-section"><span class="eyebrow">PENGAJUAN</span><h3>Menunggu Persetujuan</h3><div id="adminLeaves" class="empty">Belum ada pengajuan.</div></div></section>
 
@@ -339,7 +348,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script type="module" src="app.js?v=17"></script>
+  <script type="module" src="app.js?v=17.1"></script>
 <nav id="studentBottomNav" class="student-bottom-nav hidden">
 <button data-student-go="studentAcademicV15"><b>▥</b>Akademik</button>
 <button data-student-go="studentAttendanceV15"><b>✓</b>Kehadiran</button>

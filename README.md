@@ -274,3 +274,11 @@ Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya 
 - Student accounts read only their own `records` and `studentSummaries`; they do not need access to classmates' private grades.
 - Existing legacy summaries are automatically rebuilt when an admin logs in.
 - Student chart and subject comparisons now use `studentSummaries` instead of attempting to calculate from inaccessible peer records.
+
+
+## V17.1
+- Student top Menu/header removed on mobile.
+- Student opens directly to Academic.
+- Student navigation reduced to bottom tabs: Academic and Attendance.
+- Sidebar/drawer is not shown for student accounts.
+- Attendance page reorganized into attendance ring, H/S/I/A breakdown, leave request, calendar, and history.
