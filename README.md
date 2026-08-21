@@ -304,3 +304,11 @@ Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya 
 - Memperbaiki bug Akademik yang dirender terlalu cepat sehingga hanya menampilkan tanda strip.
 - Ditambahkan empty/loading state yang aman jika data memang belum tersedia.
 - Navigasi bawah dipaksa tetap terlihat pada student mode.
+
+
+## V17.5
+- Menu bawah Akademik/Kehadiran dibuat permanen pada mode siswa di layar hingga 900px.
+- Nilai Mata Pelajaran memakai kartu khusus pada HP sehingga tidak ada kolom yang keluar dari layout.
+- Desktop tetap menggunakan tabel.
+- Rata-rata Gabungan sekarang dihitung dari seluruh nilai mata pelajaran yang tersedia dari semester pertama sampai semester terakhir.
+- Rentang semester Rata-rata Gabungan ditampilkan di kartu ringkasan.

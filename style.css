@@ -533,3 +533,155 @@ body:not(.student-mode) .student-bottom-nav{display:none!important}
     min-height:calc(100dvh - 88px);
   }
 }
+
+/* ===== V17.5 PERMANENT STUDENT MOBILE NAV ===== */
+body.student-mode #studentBottomNav{
+  visibility:visible!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+}
+@media(max-width:900px){
+  body.student-mode #studentBottomNav{
+    display:flex!important;
+    position:fixed!important;
+    left:0!important;
+    right:0!important;
+    bottom:0!important;
+    width:100%!important;
+    min-height:64px!important;
+    z-index:9999!important;
+    background:#fff!important;
+    border-top:1px solid #e5eaf1!important;
+    box-shadow:0 -8px 24px rgba(18,44,78,.10)!important;
+    padding:7px 10px calc(8px + env(safe-area-inset-bottom))!important;
+    box-sizing:border-box!important;
+  }
+  body.student-mode #studentBottomNav button{
+    display:flex!important;
+    flex:1 1 50%!important;
+    min-width:0!important;
+    align-items:center!important;
+    justify-content:center!important;
+    flex-direction:column!important;
+    gap:2px!important;
+    border:0!important;
+    border-radius:12px!important;
+    background:transparent!important;
+    color:#8b95a6!important;
+    font-size:10px!important;
+    font-weight:800!important;
+  }
+  body.student-mode #studentBottomNav button.active{
+    background:#eef5ff!important;
+    color:#1767df!important;
+  }
+  body.student-mode .main{
+    padding-bottom:94px!important;
+  }
+  body.student-mode .sidebar,
+  body.student-mode #sidebarBackdrop,
+  body.student-mode .topbar{
+    display:none!important;
+  }
+}
+
+/* ===== V17.5 RESPONSIVE GRADE LIST ===== */
+#v15Grades{
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  box-sizing:border-box!important;
+}
+.grade-mobile-list{display:none}
+.grade-desktop{
+  width:100%;
+  max-width:100%;
+  overflow-x:auto;
+  box-sizing:border-box;
+}
+.grade-desktop table{
+  width:100%;
+  max-width:100%;
+  box-sizing:border-box;
+}
+@media(max-width:900px){
+  #v15Grades .grade-desktop{display:none!important}
+  #v15Grades .grade-mobile-list{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:9px!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+  }
+  .grade-mobile-card{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
+    border:1px solid #e6eaf1!important;
+    border-radius:14px!important;
+    padding:12px!important;
+    background:#fff!important;
+    overflow:hidden!important;
+  }
+  .grade-mobile-head{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    align-items:center!important;
+    gap:10px!important;
+    min-width:0!important;
+  }
+  .grade-mobile-head>div{
+    min-width:0!important;
+    overflow:hidden!important;
+  }
+  .grade-mobile-head span{
+    display:block!important;
+    font-size:8px!important;
+    color:#8590a1!important;
+    margin-bottom:3px!important;
+  }
+  .grade-mobile-head b{
+    display:block!important;
+    max-width:100%!important;
+    font-size:12px!important;
+    color:#17233d!important;
+    white-space:normal!important;
+    overflow-wrap:anywhere!important;
+  }
+  .grade-mobile-head strong{
+    font-size:23px!important;
+    color:#1767df!important;
+    line-height:1!important;
+  }
+  .grade-mobile-meta{
+    display:flex!important;
+    flex-wrap:wrap!important;
+    gap:7px 14px!important;
+    margin-top:9px!important;
+    padding-top:8px!important;
+    border-top:1px solid #eef1f5!important;
+  }
+  .grade-mobile-meta span{
+    font-size:9px!important;
+    color:#758093!important;
+    white-space:normal!important;
+  }
+  .grade-mobile-meta b{
+    color:#26364f!important;
+  }
+  .grade-mobile-meta .positive-diff b{color:#15803d!important}
+  .grade-mobile-meta .negative-diff b{color:#dc3545!important}
+
+  #studentAcademicV15Page,
+  #studentAcademicV15Page .v15-section,
+  #studentAcademicV15Page .card{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
+    overflow:hidden!important;
+  }
+}
