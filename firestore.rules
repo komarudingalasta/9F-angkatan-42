@@ -1,0 +1,68 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return signedIn() && myProfile().data.role == "admin";
+    }
+
+    function isStudent() {
+      return signedIn() && myProfile().data.role == "student";
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /records/{recordId} {
+      allow read: if isAdmin()
+                  || (isStudent() && resource.data.nis == myProfile().data.nis);
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /studentSummaries/{summaryId} {
+      allow read: if isAdmin()
+                  || (isStudent() && resource.data.nis == myProfile().data.nis);
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /subjects/{subjectId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+
+    match /attendance/{attendanceId} {
+      allow read: if isAdmin()
+        || (isStudent() && resource.data.nis == myNis());
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /leaveRequests/{requestId} {
+      allow read: if isAdmin()
+        || (isStudent() && resource.data.nis == myNis());
+
+      allow create: if isStudent()
+        && request.resource.data.nis == myNis()
+        && request.resource.data.status == "Menunggu"
+        && (request.resource.data.type == "Sakit"
+            || request.resource.data.type == "Izin");
+
+      allow update, delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
