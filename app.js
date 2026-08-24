@@ -1,14 +1,19 @@
 import { firebaseConfig } from "./firebase-config.js";
-import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut,
   sendPasswordResetEmail, setPersistence, browserLocalPersistence,
   createUserWithEmailAndPassword
-} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
-import { getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, writeBatch, serverTimestamp, query, where, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, writeBatch, serverTimestamp, query, where, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const $=id=>document.getElementById(id);
 document.body.classList.add("auth-locked");
+window.__PAKKOM_BOOT_OK__ = true;
+if($("bootStatus")){
+  $("bootStatus").textContent="Sistem login siap.";
+  $("bootStatus").classList.add("ready");
+}
 const CORE=["nis","nama","kelas","semester"];
 let app,auth,db,records=[],subjects=[],pendingFileRows=[],pendingHeaders=[],selectedStudent=null,charts={},currentProfile=null,currentLoginRole=null,studentSummaries=[];
 
@@ -17,8 +22,11 @@ function configReady(){
     firebaseConfig.projectId && !firebaseConfig.projectId.includes("PASTE_");
 }
 if(!configReady()){
-  $("setupScreen").classList.remove("hidden");
+  $("loginScreen")?.classList.add("hidden");
+  $("setupScreen")?.classList.remove("hidden");
 }else{
+  $("setupScreen")?.classList.add("hidden");
+  $("loginScreen")?.classList.remove("hidden");
   try{
     app=initializeApp(firebaseConfig); auth=getAuth(app); db=getFirestore(app);
     (async()=>{
@@ -43,7 +51,12 @@ if(!configReady()){
           await reloadData();
         }catch(e){
           console.error(e);
-          setMessage("loginMessage","Gagal membaca profil akses: "+e.message,true);
+          document.body.classList.add("auth-locked");
+          document.body.classList.remove("student-mode","admin-mode");
+          $("app")?.classList.add("hidden");
+          $("setupScreen")?.classList.add("hidden");
+          $("loginScreen")?.classList.remove("hidden");
+          setMessage("loginMessage","Gagal membaca profil akses. Silakan login kembali.",true);
         }
       }else{
         currentProfile=null;
@@ -72,33 +85,55 @@ function studentInternalEmail(nis){
 
 function applyRoleUI(){
   const isStudent=currentProfile?.role==="student";
+  const isAdmin=currentProfile?.role==="admin";
+
   document.body.classList.toggle("student-mode",isStudent);
-  document.body.classList.toggle("admin-mode",!isStudent);
+  document.body.classList.toggle("admin-mode",isAdmin);
+
   document.querySelectorAll(".admin-only").forEach(el=>el.classList.toggle("hidden",isStudent));
   document.querySelectorAll(".student-only").forEach(el=>el.classList.toggle("hidden",!isStudent));
-  $("semesterFilter").classList.toggle("hidden",isStudent);
-  $("classFilter").classList.toggle("hidden",isStudent);
+
+  $("semesterFilter")?.classList.toggle("hidden",isStudent);
+  $("classFilter")?.classList.toggle("hidden",isStudent);
 
   if(isStudent){
     $("studentBottomNav")?.classList.remove("hidden");
+    $("adminBottomNav")?.classList.add("hidden");
+    $("attendanceHelperAccessCard")?.classList.toggle("hidden",currentProfile?.attendanceHelper!==true);
     showPage("studentAcademicV15");
-  }else{
-    $("studentBottomNav")?.classList.add("hidden");
-    showPage("dashboard");
+    return;
   }
+
+  if(isAdmin){
+    $("studentBottomNav")?.classList.add("hidden");
+    $("adminBottomNav")?.classList.remove("hidden");
+    $("attendanceHelperAccessCard")?.classList.add("hidden");
+    showPage("dashboard");
+    return;
+  }
+
+  $("studentBottomNav")?.classList.add("hidden");
+  $("adminBottomNav")?.classList.add("hidden");
 }
 
-$("loginForm").addEventListener("submit",async e=>{
+$("loginForm")?.addEventListener("submit",async e=>{
   e.preventDefault();
-  const identifier=$("email").value.trim();
-  const password=$("password").value;
+  const identifier=$("email")?.value.trim()||"";
+  const password=$("password")?.value||"";
   if(!identifier||!password)return setMessage("loginMessage","Masukkan email/NIS dan password.",true);
+
+  if(!auth){
+    return setMessage("loginMessage","Layanan login belum siap. Muat ulang halaman.",true);
+  }
+
   const authEmail=identifier.includes("@")?identifier:studentInternalEmail(identifier);
-  setMessage("loginMessage","Memproses...");
+  setMessage("loginMessage","Memeriksa akun...");
+
   try{
     await signInWithEmailAndPassword(auth,authEmail,password);
-    setMessage("loginMessage","");
+    setMessage("loginMessage","Login berhasil. Memuat data...");
   }catch(err){
+    console.error("Login error",err);
     setMessage("loginMessage",friendlyAuthError(err),true);
   }
 });
@@ -132,28 +167,53 @@ function friendlyAuthError(e){
   const c=e?.code||"";
   if(c.includes("invalid-credential"))return"Email atau password salah.";
   if(c.includes("too-many-requests"))return"Terlalu banyak percobaan. Coba lagi nanti.";
-  if(c.includes("network-request-failed"))return"Koneksi internet bermasalah.";
+  if(c.includes("network-request-failed"))return"Koneksi ke layanan login Firebase gagal.";
+  if(c.includes("operation-not-allowed"))return"Login Email/Password belum diaktifkan di Firebase Authentication.";
+  if(c.includes("user-disabled"))return"Akun ini dinonaktifkan.";
+  if(c.includes("user-not-found"))return"Akun tidak ditemukan.";
+  if(c.includes("wrong-password"))return"Password salah.";
   return e?.message||"Login gagal.";
 }
-function setMessage(id,text,error=false){const el=$(id);el.textContent=text;el.className="message "+(error?"error":text?"success":"")}
-function setSync(text,ok=true){$("syncText").textContent=text;$("syncDot").style.color=ok?"var(--green)":"var(--red)"}
+function setMessage(id,text,error=false){
+  const el=$(id); if(!el)return;
+  el.textContent=text;
+  el.className="message "+(error?"error":text?"success":"");
+}
+function setSync(text,ok=true){
+  if($("syncText"))$("syncText").textContent=text;
+  if($("syncDot"))$("syncDot").style.color=ok?"var(--green)":"var(--red)";
+}
 
 document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>showPage(b.dataset.page));
+function adminPrimaryForPage(page){
+ if(page==="dashboard")return"summary";
+ if(["records","students","subjects","upload","pulse"].includes(page))return"academic";
+ if(page==="attendance")return"attendance";
+ if(page==="settings")return"settings";
+ return"";
+}
+function syncAdminNavigation(page){
+ const primary=adminPrimaryForPage(page);
+ document.querySelectorAll("[data-primary]").forEach(b=>b.classList.toggle("active",b.dataset.primary===primary));
+ document.querySelectorAll(".academic-admin-tabs button").forEach(b=>b.classList.toggle("active",b.dataset.academicPage===page||(page==="pulse"&&b.dataset.academicPage==="students")));
+ const n=$("adminBottomNav"); if(n){n.classList.toggle("hidden",currentProfile?.role!=="admin")}
+}
+
 function showPage(page){
-  setTimeout(()=>syncStudentBottom(page),0);
+  setTimeout(()=>syncStudentBottom(page),0);setTimeout(()=>syncAdminNavigation(page),0);
   document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
   const target=$(page+"Page");
   if(!target){console.error("Halaman tidak ditemukan:",page);return}
   target.classList.remove("hidden");
   document.querySelectorAll(".nav[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
   const meta={
-    dashboard:["Dashboard","Ringkasan perkembangan akademik"],
+    dashboard:["Ringkasan","Kondisi kelas dan informasi penting"],
     upload:["Upload Leger","Import Excel dengan validasi dan mapping"],
-    records:["Data Nilai","Data Cloud Firestore"],
+    records:["Akademik","Nilai dan perkembangan siswa"],
     pulse:["Peta Perkembangan Siswa","Meningkat, stabil, dipantau, dan perlu perhatian"],
     students:["Perkembangan Siswa","Student Journey dan Growth Index"],
     subjects:["Analisis Mapel","Tren rata-rata mata pelajaran"],
-    settings:["Pengaturan","Mata pelajaran dan akses siswa"],attendance:["Kehadiran","Absensi dan pengajuan kehadiran"],studentAcademicV15:["Akademik","Perkembangan akademik saya"],studentAttendanceV15:["Kehadiran","Rekap dan pengajuan ketidakhadiran"],
+    settings:["Pengaturan","Mata pelajaran dan akses siswa"],attendance:["Kehadiran","Absensi dan pengajuan kehadiran"],studentAcademicV15:["Akademik","Perkembangan akademik saya"],studentAttendanceV15:["Kehadiran","Rekap dan pengajuan ketidakhadiran"],studentAttendanceHelper:["Isi Kehadiran","Bantu pencatatan kehadiran kelas"],
     myGrades:["Nilai Saya","Nilai pribadi dan hasil semester"],
     studentHome:["Beranda Saya","Ringkasan perkembangan akademik pribadi"],
     studentProgress:["Grafik Perkembangan","Tren nilai dari semester ke semester"],
@@ -161,9 +221,9 @@ function showPage(page){
     studentCompare:["Perbandingan Kelas","Nilai saya dibanding rata-rata kelas"],
     studentRank:["Posisi Akademik Saya","Perkembangan posisi dibanding kelompok kelas saat ini"]
   }[page]||[page,""];
-  $("pageTitle").textContent=meta[0];$("pageSubtitle").textContent=meta[1];
-  if(page==="studentAcademicV15"){ $("pageTitle").textContent="Ringkasan"; $("pageSubtitle").textContent=""; }
-  if(page==="studentAttendanceV15"){ $("pageTitle").textContent="Kehadiran"; $("pageSubtitle").textContent="Rekap dan pengajuan ketidakhadiran"; }
+  if($("pageTitle"))$("pageTitle").textContent=meta[0]; if($("pageSubtitle"))$("pageSubtitle").textContent=meta[1];
+  if(page==="studentAcademicV15"){ if($("pageTitle"))$("pageTitle").textContent="Ringkasan"; if($("pageSubtitle"))$("pageSubtitle").textContent=""; }
+  if(page==="studentAttendanceV15"){ if($("pageTitle"))$("pageTitle").textContent="Kehadiran"; if($("pageSubtitle"))$("pageSubtitle").textContent="Rekap dan pengajuan ketidakhadiran"; }
   if(page==="records")renderTable();
   if(page==="pulse")renderPulse("pulseGrid");
   if(page==="students")renderStudentList();
@@ -175,6 +235,9 @@ function showPage(page){
   }
   if(page==="studentAttendanceV15"){
     try{renderAttendanceV15()}catch(e){console.error(e);target.innerHTML='<div class="card" style="padding:18px"><h3>Data kehadiran belum dapat ditampilkan</h3><p>Silakan muat ulang halaman atau hubungi admin.</p></div>'}
+  }
+  if(page==="studentAttendanceHelper"){
+    try{renderStudentAttendanceHelper()}catch(e){console.error(e);target.innerHTML='<div class="card" style="padding:18px"><h3>Kehadiran belum dapat ditampilkan</h3></div>'}
   }
   if(page==="myGrades")renderMyGrades();
   if(page==="studentHome")renderStudentHome();
@@ -434,7 +497,8 @@ function renderSubjectChart(){
   $("subjectStats").innerHTML=`<div><span>Nilai Terpilih</span><b>${vals.length?fmt(vals.at(-1)):"-"}</b></div><div><span>Tertinggi</span><b>${vals.length?fmt(Math.max(...vals)):"-"}</b></div><div><span>Terendah</span><b>${vals.length?fmt(Math.min(...vals)):"-"}</b></div><div><span>Jumlah Semester</span><b>${vals.length}</b></div>`;
 }
 function renderSettings(){
-  ensureSubjectObjects();const sorted=[...subjects].sort((a,b)=>(a.order??999)-(b.order??999));
+  ensureSubjectObjects();
+      syncClassRosterFromRecords().catch(e=>console.warn("Roster sync",e))const sorted=[...subjects].sort((a,b)=>(a.order??999)-(b.order??999));
   $("subjectSettingsTable").querySelector("tbody").innerHTML=sorted.map(s=>`<tr data-id="${escapeAttr(s.id||s.key)}"><td><input class="settings-input order-input" type="number" value="${Number(s.order??999)}"></td><td>${escapeHtml(s.key)}</td><td><input class="settings-input name-input" value="${escapeAttr(s.name||titleCase(s.key))}"></td><td><input class="settings-input short-input" value="${escapeAttr(s.short||s.name||titleCase(s.key))}"></td><td><select class="settings-input active-input"><option value="true" ${s.active!==false?"selected":""}>Aktif</option><option value="false" ${s.active===false?"selected":""}>Nonaktif</option></select></td><td><button class="btn secondary save-subject">Simpan</button></td></tr>`).join("");
   $("subjectSettingsTable").querySelectorAll(".save-subject").forEach(btn=>btn.onclick=async()=>{
     const tr=btn.closest("tr"),id=tr.dataset.id,key=subjects.find(x=>(x.id||x.key)===id)?.key||id;
@@ -1040,18 +1104,24 @@ function updateAttendanceKpis(){
 function renderDailyAttendanceList(){
   const date=$("attendanceDate").value;
   const students=currentStudentList();
+
   $("dailyAttendanceList").innerHTML=students.map(s=>{
     const old=attendanceFor(s.nis,date);
-    return `<div class="v18-att-row" data-nis="${escapeAttr(String(s.nis))}">
-      <div class="v18-student"><b>${escapeHtml(s.nama||"-")}</b><small>NIS ${escapeHtml(String(s.nis))}</small></div>
-      <select class="v18-status">
-        <option value="">Belum Tercatat</option>
-        ${["Hadir","Sakit","Izin","Alpa"].map(x=>`<option value="${x}" ${old?.status===x?"selected":""}>${x}</option>`).join("")}
-      </select>
-      <input class="v18-note" placeholder="Keterangan (opsional)" value="${escapeAttr(old?.note||"")}">
+    const status=old?.status||"Hadir";
+    const note=old?.note||"";
+    return `<div class="v18-att-row quick" data-nis="${escapeAttr(String(s.nis))}" data-status="${escapeAttr(status)}">
+      <div class="v18-student">
+        <b>${escapeHtml(s.nama||"-")}</b>
+        <small>NIS ${escapeHtml(String(s.nis))}${note?` · ${escapeHtml(note)}`:""}</small>
+        <div class="quick-att-picker hidden">
+          ${["Hadir","Sakit","Izin","Alpa"].map(x=>`<button type="button" data-pick="${x}">${x}</button>`).join("")}
+        </div>
+      </div>
+      <span class="quick-status">${escapeHtml(status)}</span>
     </div>`;
   }).join("")||'<div class="empty">Belum ada data siswa.</div>';
-  updateAttendanceKpis();
+
+  updateAttendanceKpisFromQuickRows();
 }
 async function renderAttendanceV18(){
   if(currentProfile?.role!=="admin")return;
@@ -1068,45 +1138,79 @@ async function renderAttendanceV18(){
   }
 }
 $("attendanceDate")?.addEventListener("change",renderDailyAttendanceList);
-$("markAllPresentBtn")?.addEventListener("click",()=>{
-  document.querySelectorAll("#dailyAttendanceList .v18-status").forEach(s=>s.value="Hadir");
-  updateAttendanceKpisFromForm();
-});
-function updateAttendanceKpisFromForm(){
-  const vals=[...document.querySelectorAll("#dailyAttendanceList .v18-status")].map(x=>x.value);
+
+function updateAttendanceKpisFromQuickRows(){
+  const vals=[...document.querySelectorAll("#dailyAttendanceList .v18-att-row.quick")].map(x=>x.dataset.status||"Hadir");
   $("adminAttH").textContent=vals.filter(x=>x==="Hadir").length;
   $("adminAttS").textContent=vals.filter(x=>x==="Sakit").length;
   $("adminAttI").textContent=vals.filter(x=>x==="Izin").length;
   $("adminAttA").textContent=vals.filter(x=>x==="Alpa").length;
-  $("adminAttU").textContent=vals.filter(x=>!x).length;
+  $("adminAttU").textContent=0;
 }
-$("dailyAttendanceList")?.addEventListener("change",e=>{
-  if(e.target.classList.contains("v18-status"))updateAttendanceKpisFromForm();
+$("resetAllPresentBtn")?.addEventListener("click",()=>{
+  document.querySelectorAll("#dailyAttendanceList .v18-att-row.quick").forEach(row=>{
+    row.dataset.status="Hadir";
+    row.querySelector(".quick-status").textContent="Hadir";
+    row.querySelector(".quick-att-picker")?.classList.add("hidden");
+  });
+  updateAttendanceKpisFromQuickRows();
 });
+
+
+
+$("dailyAttendanceList")?.addEventListener("click",e=>{
+  const row=e.target.closest(".v18-att-row.quick");
+  if(!row)return;
+
+  const pick=e.target.closest("[data-pick]");
+  if(pick){
+    e.stopPropagation();
+    row.dataset.status=pick.dataset.pick;
+    row.querySelector(".quick-status").textContent=pick.dataset.pick;
+    row.querySelector(".quick-att-picker")?.classList.add("hidden");
+    updateAttendanceKpisFromQuickRows();
+    return;
+  }
+
+  row.querySelector(".quick-att-picker")?.classList.toggle("hidden");
+});
+
 $("saveDailyAttendanceBtn")?.addEventListener("click",async()=>{
   const date=$("attendanceDate").value;
   if(!date)return setMessage("dailyAttendanceMessage","Pilih tanggal terlebih dahulu.",true);
-  const rows=[...document.querySelectorAll("#dailyAttendanceList .v18-att-row")];
+
+  const rows=[...document.querySelectorAll("#dailyAttendanceList .v18-att-row.quick")];
   setMessage("dailyAttendanceMessage","Menyimpan...");
+
   try{
     let batch=writeBatch(db),count=0;
+    const students=currentStudentList();
+
     for(const row of rows){
-      const nis=row.dataset.nis,status=row.querySelector(".v18-status").value,note=row.querySelector(".v18-note").value.trim();
-      if(!status)continue;
-      const student=currentStudentList().find(s=>String(s.nis)===String(nis));
-      const id=attendanceDocId(nis,date);
-      batch.set(doc(db,"attendance",id),{
-        nis,name:student?.nama||"",kelas:student?.kelas||"",date,status,note,
-        source:"Manual",updatedAt:serverTimestamp()
+      const nis=row.dataset.nis;
+      const status=row.dataset.status||"Hadir";
+      const student=students.find(s=>String(s.nis)===String(nis));
+      const existing=attendanceFor(nis,date);
+      const note=existing?.note||"";
+      const source=existing?.source==="Pengajuan" ? "Pengajuan" : "Manual";
+
+      batch.set(doc(db,"attendance",attendanceDocId(nis,date)),{
+        nis,name:student?.nama||"",kelas:student?.kelas||"",date,status,note,source,
+        updatedAt:serverTimestamp()
       },{merge:true});
+
       count++;
       if(count%400===0){await batch.commit();batch=writeBatch(db)}
     }
+
     await batch.commit();
     setMessage("dailyAttendanceMessage","Kehadiran berhasil disimpan.");
-    await loadAllAttendanceV18();renderDailyAttendanceList();renderAttendanceRecap();
+    await loadAllAttendanceV18();
+    renderDailyAttendanceList();
+    renderAttendanceRecap();
   }catch(e){
-    console.error(e);setMessage("dailyAttendanceMessage","Gagal menyimpan kehadiran: "+e.message,true);
+    console.error(e);
+    setMessage("dailyAttendanceMessage","Gagal menyimpan kehadiran: "+e.message,true);
   }
 });
 
@@ -1151,6 +1255,7 @@ $("adminLeaveRequestsV18")?.addEventListener("click",async e=>{
       batch.update(doc(db,"leaveRequests",req.id),{status:"Disetujui",reviewedAt:serverTimestamp()});
       await batch.commit();
       await renderAttendanceV18();
+      renderAttendanceRecap();
     }catch(err){alert("Gagal menyetujui: "+err.message)}
   }
   if(e.target.classList.contains("reject-leave")){
@@ -1311,4 +1416,184 @@ $("leavePhoto")?.addEventListener("change",async()=>{
  if(!f){box?.classList.add("hidden");return;}
  try{setMessage("leaveMsg","Menyiapkan foto...");preparedLeavePhoto=await compressEvidencePhoto(f);box.innerHTML=`<img src="${preparedLeavePhoto.previewUrl}"><div><b>Foto siap dilampirkan</b><small>${escapeHtml(f.name)}</small></div>`;box.classList.remove("hidden");setMessage("leaveMsg","");}
  catch(e){$("leavePhoto").value="";box?.classList.add("hidden");setMessage("leaveMsg",e.message,true);}
+});
+
+
+// ===== V18.4 STUDENT ATTENDANCE HELPERS =====
+async function renderAttendanceHelpers(){
+  const box=$("attendanceHelperList"); if(!box || currentProfile?.role!=="admin")return;
+  try{
+    const snap=await getDocs(collection(db,"users"));
+    const profiles=snap.docs.map(d=>({uid:d.id,...d.data()}))
+      .filter(x=>x.role==="student")
+      .sort((a,b)=>(a.name||a.nis||"").localeCompare(b.name||b.nis||""));
+    box.innerHTML=profiles.map(p=>`
+      <div class="helper-row" data-nis="${escapeAttr(String(p.nis||""))}">
+        <div><b>${escapeHtml(p.name||p.nis||"-")}</b><small>NIS ${escapeHtml(String(p.nis||"-"))}</small></div>
+        <label class="helper-toggle"><input type="checkbox" data-helper-uid="${escapeAttr(p.uid)}" ${p.attendanceHelper===true?"checked":""}> Petugas</label>
+      </div>`).join("")||'<div class="empty">Belum ada akun siswa.</div>';
+  }catch(e){box.innerHTML='<div class="empty">Daftar siswa belum dapat dimuat.</div>'}
+}
+
+$("attendanceHelperList")?.addEventListener("change",async e=>{
+  const input=e.target.closest("[data-helper-uid]");if(!input)return;
+  input.disabled=true;
+  try{
+    const row=input.closest(".helper-row");
+    const nis=row?.dataset?.nis||"";
+    const latest=records.filter(r=>String(r.nis)===String(nis))
+      .sort((a,b)=>semesterRank(a.semester)-semesterRank(b.semester)).at(-1);
+    await updateDoc(doc(db,"users",input.dataset.helperUid),{
+      attendanceHelper:input.checked,
+      attendanceHelperClass:input.checked?(latest?.kelas||""):"",
+      attendanceHelperUpdatedAt:serverTimestamp()
+    });
+    setMessage("attendanceHelperMessage",input.checked?"Akses petugas kehadiran diberikan.":"Akses petugas kehadiran dicabut.");
+  }catch(err){
+    input.checked=!input.checked;
+    setMessage("attendanceHelperMessage","Gagal mengubah akses: "+err.message,true);
+  }finally{input.disabled=false}
+});
+
+// Render helper controls whenever Settings opens.
+const _oldRenderSettingsV184=renderSettings;
+renderSettings=function(){
+  _oldRenderSettingsV184();
+  setTimeout(renderAttendanceHelpers,0);
+};
+
+function helperCurrentClass(){
+  return currentProfile?.kelas || mineV15().at(-1)?.kelas || "-";
+}
+async function helperStudentList(){return await loadHelperClassRoster();}
+async function loadHelperAttendanceToday(){
+  const date=isoToday();
+  const snap=await getDocs(query(collection(db,"attendance"),where("date","==",date)));
+  return snap.docs.map(d=>({id:d.id,...d.data()}));
+}
+async function renderStudentAttendanceHelper(){
+  if(currentProfile?.role!=="student"||currentProfile?.attendanceHelper!==true){
+    $("helperAttendanceList").innerHTML='<div class="empty">Anda tidak memiliki akses sebagai petugas kehadiran.</div>';
+    return;
+  }
+  const date=isoToday();
+  $("helperAttendanceDateLabel").textContent=date;
+  $("helperAttendanceList").innerHTML='<div class="empty">Memuat daftar siswa...</div>';
+  try{
+    const [existing,students]=await Promise.all([loadHelperAttendanceToday(),helperStudentList()]);
+    $("helperAttendanceList").innerHTML=students.map(s=>{
+      const old=existing.find(x=>String(x.nis)===String(s.nis));
+      const status=old?.status||"Hadir";
+      const locked=old?.source==="Pengajuan";
+      return `<div class="v18-att-row quick ${locked?"helper-locked":""}" data-nis="${escapeAttr(String(s.nis))}" data-status="${escapeAttr(status)}" data-locked="${locked?"1":"0"}">
+        <div class="v18-student">
+          <b>${escapeHtml(s.name||"-")}</b>
+          <small>NIS ${escapeHtml(String(s.nis))}${locked?" · Status dari pengajuan disetujui":""}</small>
+          <div class="quick-att-picker hidden">${["Hadir","Sakit","Izin","Alpa"].map(x=>`<button type="button" data-pick="${x}">${x}</button>`).join("")}</div>
+        </div>
+        <span class="quick-status">${escapeHtml(status)}</span>
+      </div>`;
+    }).join("")||'<div class="empty">Belum ada daftar siswa kelas. Minta admin membuka web satu kali untuk menyinkronkan daftar siswa.</div>';
+  }catch(e){
+    console.error(e);
+    $("helperAttendanceList").innerHTML='<div class="empty">Daftar siswa belum dapat dimuat.</div>';
+  }
+}
+
+$("helperAttendanceList")?.addEventListener("click",e=>{
+  const row=e.target.closest(".v18-att-row.quick");if(!row || row.dataset.locked==="1")return;
+  const pick=e.target.closest("[data-pick]");
+  if(pick){
+    e.stopPropagation();
+    row.dataset.status=pick.dataset.pick;
+    row.querySelector(".quick-status").textContent=pick.dataset.pick;
+    row.querySelector(".quick-att-picker")?.classList.add("hidden");
+    return;
+  }
+  row.querySelector(".quick-att-picker")?.classList.toggle("hidden");
+});
+
+$("helperResetAllPresentBtn")?.addEventListener("click",()=>{
+  document.querySelectorAll("#helperAttendanceList .v18-att-row.quick").forEach(row=>{
+    if(row.dataset.locked==="1")return;
+    row.dataset.status="Hadir";
+    row.querySelector(".quick-status").textContent="Hadir";
+    row.querySelector(".quick-att-picker")?.classList.add("hidden");
+  });
+});
+
+$("helperSaveAttendanceBtn")?.addEventListener("click",async()=>{
+  if(currentProfile?.attendanceHelper!==true)return;
+  const date=isoToday(),rows=[...document.querySelectorAll("#helperAttendanceList .v18-att-row.quick")];
+  setMessage("helperAttendanceMessage","Menyimpan...");
+  try{
+    const students=await helperStudentList();
+    let batch=writeBatch(db),count=0;
+    for(const row of rows){
+      if(row.dataset.locked==="1")continue;
+      const nis=row.dataset.nis,status=row.dataset.status||"Hadir";
+      const student=students.find(s=>String(s.nis)===String(nis));
+      batch.set(doc(db,"attendance",attendanceDocId(nis,date)),{
+        nis,name:student?.name||"",kelas:student?.kelas||currentProfile?.attendanceHelperClass||"",
+        date,status,note:"",source:"Petugas Siswa",helperUid:auth.currentUser?.uid||"",updatedAt:serverTimestamp()
+      },{merge:true});
+      count++;
+      if(count%400===0){await batch.commit();batch=writeBatch(db)}
+    }
+    await batch.commit();
+    setMessage("helperAttendanceMessage","Kehadiran berhasil disimpan.");
+    await renderStudentAttendanceHelper();
+  }catch(e){console.error(e);setMessage("helperAttendanceMessage","Gagal menyimpan: "+e.message,true)}
+});
+
+document.querySelectorAll("[data-academic-page]").forEach(b=>b.addEventListener("click",()=>showPage(b.dataset.academicPage)));
+document.querySelectorAll("[data-admin-go]").forEach(b=>b.addEventListener("click",()=>showPage(b.dataset.adminGo)));
+$("openStudentAttendanceHelperBtn")?.addEventListener("click",()=>{if(currentProfile?.attendanceHelper===true)showPage("studentAttendanceHelper")});
+
+
+// ===== V18.6 SAFE CLASS ROSTER =====
+async function syncClassRosterFromRecords(){
+  if(!db || currentProfile?.role!=="admin" || !Array.isArray(records) || !records.length)return;
+  const latestByNis=new Map();
+  records.forEach(r=>{
+    if(!r.nis)return;
+    const key=String(r.nis);
+    const old=latestByNis.get(key);
+    if(!old||semesterRank(r.semester)>=semesterRank(old.semester))latestByNis.set(key,r);
+  });
+  let batch=writeBatch(db),count=0;
+  for(const r of latestByNis.values()){
+    batch.set(doc(db,"classRoster",slug(String(r.nis))),{
+      nis:String(r.nis),name:r.nama||"",kelas:r.kelas||"",updatedAt:serverTimestamp()
+    },{merge:true});
+    count++;
+    if(count%400===0){await batch.commit();batch=writeBatch(db)}
+  }
+  await batch.commit();
+}
+async function loadHelperClassRoster(){
+  const cls=currentProfile?.attendanceHelperClass||currentProfile?.kelas||"";
+  if(!cls)return [];
+  const snap=await getDocs(query(collection(db,"classRoster"),where("kelas","==",cls)));
+  return snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+}
+
+async function mobileLogout(){try{await signOut(auth)}catch(e){console.error(e)}}
+$("adminMobileLogoutBtn")?.addEventListener("click",mobileLogout);
+$("studentMobileLogoutBtn")?.addEventListener("click",mobileLogout);
+
+
+window.addEventListener("error",e=>{
+  console.error("Runtime error:",e.error||e.message);
+  const app=document.getElementById("app");
+  const login=document.getElementById("loginScreen");
+  if(app && app.classList.contains("hidden") && login){
+    login.classList.remove("hidden");
+    document.body.classList.add("auth-locked");
+    const msg=document.getElementById("loginMessage");
+    if(msg && !msg.textContent)msg.textContent="Aplikasi mengalami kendala saat dimuat. Silakan muat ulang atau login kembali.";
+  }
+});
+window.addEventListener("unhandledrejection",e=>{
+  console.error("Unhandled promise:",e.reason);
 });

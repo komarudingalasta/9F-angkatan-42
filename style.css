@@ -735,3 +735,95 @@ body.student-mode #studentBottomNav{
 .leave-photo-preview{display:flex;align-items:center;gap:10px;margin:7px 0;padding:8px;border:1px solid var(--line);border-radius:11px;background:#f8fafc}
 .leave-photo-preview img{width:64px;height:64px;object-fit:cover;border-radius:8px}.leave-photo-preview b,.leave-photo-preview small{display:block}.leave-photo-preview small{font-size:9px;color:var(--muted)}
 .evidence-link{display:inline-flex;margin-top:6px;padding:6px 9px;border:1px solid #cfe0fb;border-radius:9px;background:#eef5ff;color:#1767df;text-decoration:none;font-size:9px;font-weight:800}
+
+/* ===== V18.3 QUICK MANUAL ATTENDANCE ===== */
+.quick-att-legend{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px;font-size:9px;color:var(--muted)}
+.quick-att-legend span{padding:6px 9px;border-radius:999px;background:#f4f6f9}
+.quick-att-legend .q-sick{background:#f3ebff;color:#7c3aed}
+.quick-att-legend .q-permit{background:#fff4df;color:#d97706}
+.quick-att-legend .q-absent{background:#feecec;color:#dc2626}
+
+.v18-att-row.quick{grid-template-columns:minmax(0,1fr) auto!important;cursor:pointer;user-select:none;transition:.15s ease}
+.v18-att-row.quick:hover{transform:translateY(-1px)}
+.v18-att-row.quick .quick-status{
+  min-width:72px;text-align:center;padding:7px 10px;border-radius:999px;
+  font-size:10px;font-weight:900;background:#eaf8ee;color:#16803c
+}
+.v18-att-row.quick[data-status="Sakit"]{background:#fbf7ff;border-color:#ddcdf7}
+.v18-att-row.quick[data-status="Sakit"] .quick-status{background:#f1e9ff;color:#7c3aed}
+.v18-att-row.quick[data-status="Izin"]{background:#fffaf0;border-color:#f1dfb5}
+.v18-att-row.quick[data-status="Izin"] .quick-status{background:#fff0d2;color:#c56b00}
+.v18-att-row.quick[data-status="Alpa"]{background:#fff5f5;border-color:#f3cccc}
+.v18-att-row.quick[data-status="Alpa"] .quick-status{background:#fde7e7;color:#d52f3a}
+.quick-att-picker{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.quick-att-picker button{border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 9px;font-size:9px;font-weight:800;cursor:pointer}
+.quick-att-picker button[data-pick="Hadir"]{color:#16803c}
+.quick-att-picker button[data-pick="Sakit"]{color:#7c3aed}
+.quick-att-picker button[data-pick="Izin"]{color:#c56b00}
+.quick-att-picker button[data-pick="Alpa"]{color:#d52f3a}
+@media(max-width:620px){.v18-att-row.quick{padding:11px!important}.v18-att-row.quick .quick-status{min-width:64px}}
+
+/* ===== V18.4 ATTENDANCE HELPER ===== */
+.helper-list{display:grid;gap:8px}
+.helper-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:11px;background:#fff}
+.helper-row b,.helper-row small{display:block}.helper-row small{font-size:9px;color:var(--muted);margin-top:2px}
+.helper-toggle{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:800}
+.helper-toggle input{width:18px;height:18px}
+#studentAttendanceHelperPage{max-width:1120px;margin:0 auto}
+.helper-locked{opacity:.68;background:#f7f9fc!important;cursor:not-allowed!important}
+.helper-locked .quick-status{background:#eef1f5!important;color:#667085!important}
+@media(max-width:900px){
+ body.student-mode #studentBottomNav:has(#helperBottomNavBtn:not(.hidden)) button{flex-basis:33.333%!important}
+}
+
+.academic-admin-tabs{display:flex;gap:4px;padding:4px;margin-bottom:14px;background:#f3f6fa;border-radius:13px;overflow-x:auto}
+.academic-admin-tabs button{flex:1;min-width:max-content;border:0;background:transparent;border-radius:10px;padding:10px 12px;color:#748095;font-size:10px;font-weight:800}
+.academic-admin-tabs button.active{background:#fff;color:#1767df;box-shadow:0 3px 12px rgba(24,65,120,.09)}
+.admin-bottom-nav{display:none}
+.helper-access-card{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:15px!important;margin-bottom:14px!important;background:#eef5ff!important}
+@media(max-width:900px){
+ body.admin-mode .sidebar,body.admin-mode #sidebarBackdrop{display:none!important}
+ body.admin-mode .main{padding-bottom:88px!important}
+ body.admin-mode #adminBottomNav{display:flex!important;position:fixed;left:0;right:0;bottom:0;z-index:9999;background:#fff;border-top:1px solid #e5eaf1;padding:7px 8px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(18,44,78,.10)}
+ .admin-bottom-nav button{flex:1;border:0;background:transparent;border-radius:12px;padding:6px 3px;color:#8b95a6;font-size:9px;font-weight:800}
+ .admin-bottom-nav button b{display:block;font-size:18px}
+ .admin-bottom-nav button.active{background:#eef5ff;color:#1767df}
+ .helper-access-card{flex-direction:column;align-items:stretch}
+}
+
+/* ===== V18.6 MOBILE MENU + ATTENDANCE HELPER FIX ===== */
+@media(max-width:900px){
+ body.admin-mode #menuBtn,body.student-mode #menuBtn{display:none!important}
+ body.admin-mode .topbar{justify-content:center!important}
+ body.admin-mode #adminBottomNav button,body.student-mode #studentBottomNav button{min-width:0!important}
+ .mobile-logout-btn,.mobile-logout-btn b{color:#c73d4b!important}
+}
+@media(max-width:520px){
+ body.admin-mode #adminBottomNav button,body.student-mode #studentBottomNav button{font-size:8px!important;padding-left:1px!important;padding-right:1px!important}
+}
+
+/* ===== V18.6.1 WHITE SCREEN SAFETY ===== */
+#loginScreen:not(.hidden){display:flex!important}
+body.auth-locked #loginScreen:not(.hidden){visibility:visible!important;opacity:1!important}
+
+/* ===== V18.6.2 BOOT-SAFE VISIBILITY ===== */
+#loginScreen:not(.hidden){
+  display:grid!important;
+  visibility:visible!important;
+  opacity:1!important;
+}
+#setupScreen:not(.hidden){
+  display:grid!important;
+  visibility:visible!important;
+  opacity:1!important;
+}
+body.auth-locked #app{display:none!important}
+
+/* ===== V18.6.3 LOGIN DIAGNOSTIC ===== */
+.boot-status{
+  margin-top:8px;
+  text-align:center;
+  font-size:9px;
+  color:#8a94a6;
+}
+.boot-status.ready{color:#198754}

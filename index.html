@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#174b9e">
   <title>PakKom Student Analytics</title>
-  <link rel="stylesheet" href="style.css?v=18.2">
+  <link rel="stylesheet" href="style.css?v=18.6.3">
 </head>
 <body>
   <section id="setupScreen" class="center-screen hidden auth-screen">
@@ -23,7 +23,7 @@
     </div>
   </section>
 
-  <section id="loginScreen" class="center-screen hidden auth-screen">
+  <section id="loginScreen" class="center-screen auth-screen">
     <div class="login-card">
       <div class="logo lg">PK</div>
       <h1>PakKom Student Analytics</h1>
@@ -41,7 +41,7 @@
         <button class="btn primary full" type="submit">Masuk</button>
         <button class="btn link full" type="button" id="resetPassword">Lupa password?</button>
         <div id="loginHint" class="login-hint">Gunakan email atau NIS dan password Anda.</div>
-        <div id="loginMessage" class="message"></div>
+        <div id="loginMessage" class="message"></div><div id="bootStatus" class="boot-status">Memuat sistem login…</div>
       </form>
     </div>
   </section>
@@ -55,29 +55,13 @@
       </div>
 
       <nav>
-        <button class="nav admin-only active" data-page="dashboard">⌂ <span>Dashboard</span></button>
-        
-        
-        
-        
-        
-        
-
-        <div class="nav-label admin-only">DATA AKADEMIK</div>
-        <button class="nav admin-only" data-page="upload">⇧ <span>Upload Leger</span></button>
-        <button class="nav admin-only" data-page="records">▣ <span>Data Nilai</span></button>
-
-        <div class="nav-label admin-only">ANALISIS</div>
-        <button class="nav admin-only" data-page="pulse">◎ <span>Status Siswa</span></button>
-        <button class="nav admin-only" data-page="students">◔ <span>Perkembangan Siswa</span></button>
-        <button class="nav admin-only" data-page="subjects">◫ <span>Analisis Mapel</span></button>
-
-        <div class="nav-label admin-only">PENGATURAN</div>
-        <button class="nav student-only hidden" data-page="studentAcademicV15"><span>▥</span> Akademik</button>
-        <button class="nav student-only hidden" data-page="studentAttendanceV15"><span>✓</span> Kehadiran</button>
-        <button class="nav admin-only" data-page="attendance"><span>✓</span> Kehadiran</button>
-        <button class="nav admin-only" data-page="settings">⚙ <span>Pengaturan</span></button>
-      </nav>
+<button class="nav admin-only active" data-page="dashboard" data-primary="summary">⌂ <span>Ringkasan</span></button>
+<button class="nav admin-only" data-page="records" data-primary="academic">◫ <span>Akademik</span></button>
+<button class="nav admin-only" data-page="attendance" data-primary="attendance">✓ <span>Kehadiran</span></button>
+<button class="nav admin-only" data-page="settings" data-primary="settings">⚙ <span>Pengaturan</span></button>
+<button class="nav student-only hidden" data-page="studentAcademicV15"><span>▥</span> Akademik</button>
+<button class="nav student-only hidden" data-page="studentAttendanceV15"><span>✓</span> Kehadiran</button>
+</nav>
 
       <div class="sidebar-bottom">
         <div class="account-card">
@@ -133,7 +117,12 @@
         </article>
       </section>
 
-      <section id="uploadPage" class="page hidden">
+      <section id="uploadPage" class="page hidden"><div class="academic-admin-tabs admin-only">
+<button data-academic-page="records">Nilai</button>
+<button data-academic-page="students">Perkembangan</button>
+<button data-academic-page="subjects">Analisis Mapel</button>
+<button data-academic-page="upload">Upload</button>
+</div>
         <div class="grid upload-grid">
           <article class="panel">
             <h3>1. Siapkan & Pilih Leger Excel</h3>
@@ -183,7 +172,12 @@
         </article>
       </section>
 
-      <section id="studentsPage" class="page hidden">
+      <section id="studentsPage" class="page hidden"><div class="academic-admin-tabs admin-only">
+<button data-academic-page="records">Nilai</button>
+<button data-academic-page="students">Perkembangan</button>
+<button data-academic-page="subjects">Analisis Mapel</button>
+<button data-academic-page="upload">Upload</button>
+</div>
         <div class="students-layout">
           <article class="panel student-list-panel">
             <h3>Daftar Siswa</h3>
@@ -206,7 +200,12 @@
         </div>
       </section>
 
-      <section id="subjectsPage" class="page hidden">
+      <section id="subjectsPage" class="page hidden"><div class="academic-admin-tabs admin-only">
+<button data-academic-page="records">Nilai</button>
+<button data-academic-page="students">Perkembangan</button>
+<button data-academic-page="subjects">Analisis Mapel</button>
+<button data-academic-page="upload">Upload</button>
+</div>
         <article class="panel">
           <div class="panel-head responsive"><div><h3>Analisis Mata Pelajaran</h3><p>Tren rata-rata per semester</p></div><select id="subjectSelect"></select></div>
           <canvas id="subjectChart"></canvas>
@@ -247,9 +246,26 @@
             </table>
           </div>
         </article>
-      </section>
+      
+  <div class="card v18-panel">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">PETUGAS KEHADIRAN</span>
+        <h3>Siswa Pembantu Absensi</h3>
+        <p>Pilih siswa yang boleh membantu mengisi kehadiran manual.</p>
+      </div>
+    </div>
+    <div id="attendanceHelperList" class="helper-list"></div>
+    <div id="attendanceHelperMessage" class="message"></div>
+  </div>
+</section>
 
-      <section id="recordsPage" class="page hidden">
+      <section id="recordsPage" class="page hidden"><div class="academic-admin-tabs admin-only">
+<button data-academic-page="records">Nilai</button>
+<button data-academic-page="students">Perkembangan</button>
+<button data-academic-page="subjects">Analisis Mapel</button>
+<button data-academic-page="upload">Upload</button>
+</div>
         <article class="panel">
           <div class="panel-head responsive">
             <div><h3>Data Nilai</h3><p>Data langsung dibaca dari Cloud Firestore.</p></div>
@@ -329,7 +345,10 @@
 <div class="v15-insights"><article class="card"><span class="eyebrow">KEKUATAN</span><h3 id="v15Strong">—</h3><b id="v15StrongVal">—</b></article><article class="card"><span class="eyebrow">PALING BERKEMBANG</span><h3 id="v15Improve">—</h3><b id="v15ImproveVal">—</b></article><article class="card"><span class="eyebrow">FOKUS BERIKUTNYA</span><h3 id="v15Focus">—</h3><b id="v15FocusVal">—</b></article></div>
 <div class="card v15-section"><span class="eyebrow">POSISI AKADEMIK</span><h3>Perkembangan Posisi</h3><div id="v15Journey" class="v15-journey"></div><p class="position-note">Posisi setiap semester dibandingkan dengan siswa yang berada di <b>kelas saat ini</b> dan memiliki nilai pada semester tersebut.</p><p class="v15-help">Posisi setiap semester dibandingkan dengan kelompok siswa yang berada di kelas saat ini.</p></div></section>
 
-<section id="studentAttendanceV15Page" class="page hidden student-page"><div class="v15-hero"><div><span class="eyebrow">KEHADIRAN</span><h2 id="attName">—</h2><p>Rekap kehadiran, kalender, dan pengajuan izin/sakit.</p></div><button class="primary" id="leaveBtn">+ Ajukan Izin / Sakit</button></div><div class="card v15-section attendance-summary-card">
+<section id="studentAttendanceV15Page" class="page hidden student-page"><div class="v15-hero"><div><span class="eyebrow">KEHADIRAN</span><h2 id="attName">—</h2><p>Rekap kehadiran, kalender, dan pengajuan izin/sakit.</p></div><button class="primary" id="leaveBtn">+ Ajukan Izin / Sakit</button></div><div id="attendanceHelperAccessCard" class="card helper-access-card hidden">
+<div><span class="eyebrow">TUGAS KEHADIRAN</span><h3>Bantu Isi Kehadiran Kelas</h3><p>Anda ditunjuk admin untuk membantu pencatatan kehadiran hari ini.</p></div>
+<button id="openStudentAttendanceHelperBtn" class="btn primary">Mulai Isi Kehadiran</button>
+</div><div class="card v15-section attendance-summary-card">
       <div class="attendance-ring" id="attRing"><div><strong id="attRate">—</strong><span>Kehadiran</span></div></div>
       <div class="attendance-breakdown">
         <div><span>Hadir</span><b id="attH">0</b></div>
@@ -372,8 +391,14 @@
 
   <section id="dailyAttendancePanel" class="card v18-panel">
     <div class="section-head responsive">
-      <div><span class="eyebrow">HARIAN</span><h3>Daftar Kehadiran</h3><p>Pilih status untuk setiap siswa lalu simpan.</p></div>
-      <button id="markAllPresentBtn" class="btn small">Tandai Semua Hadir</button>
+      <div><span class="eyebrow">HARIAN</span><h3>Daftar Kehadiran</h3><p>Semua siswa dianggap Hadir. Klik hanya siswa yang tidak hadir.</p></div>
+      <button id="resetAllPresentBtn" class="btn small">Reset Semua Hadir</button>
+    </div>
+    <div class="quick-att-legend">
+      <span>Default: <b>Hadir</b></span>
+      <span class="q-sick">Sakit</span>
+      <span class="q-permit">Izin</span>
+      <span class="q-absent">Alpa</span>
     </div>
     <div id="dailyAttendanceList" class="v18-att-list"></div>
     <div class="v18-sticky-save">
@@ -426,15 +451,109 @@
 <div id="leavePhotoPreview" class="leave-photo-preview hidden"></div>
 <p class="upload-hint">Foto diperkecil otomatis sebelum dikirim. Maksimal file asli 8 MB.</p>
 <button class="primary" id="leaveSubmit">Kirim Pengajuan</button><div id="leaveMsg"></div></div></div>
+
+<section id="studentAttendanceHelperPage" class="page hidden student-page">
+  <div class="v15-hero">
+    <div>
+      <span class="eyebrow">PETUGAS KEHADIRAN</span>
+      <h2>Isi Kehadiran Kelas</h2>
+      <p>Semua siswa dianggap Hadir. Klik hanya siswa yang tidak hadir.</p>
+    </div>
+  </div>
+  <div class="card v18-panel">
+    <div class="section-head responsive">
+      <div>
+        <span class="eyebrow">HARI INI</span>
+        <h3 id="helperAttendanceDateLabel">—</h3>
+      </div>
+      <button id="helperResetAllPresentBtn" class="btn small">Reset Semua Hadir</button>
+    </div>
+    <div class="quick-att-legend">
+      <span>Default: <b>Hadir</b></span>
+      <span class="q-sick">Sakit</span>
+      <span class="q-permit">Izin</span>
+      <span class="q-absent">Alpa</span>
+    </div>
+    <div id="helperAttendanceList" class="v18-att-list"></div>
+    <div class="v18-sticky-save">
+      <span id="helperAttendanceMessage" class="message"></span>
+      <button id="helperSaveAttendanceBtn" class="btn primary">Simpan Kehadiran</button>
+    </div>
+  </div>
+</section>
+
 </main>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script type="module" src="app.js?v=18.2"></script>
-<nav id="studentBottomNav" class="student-bottom-nav hidden">
+  
+
+<script>
+(function () {
+  window.__PAKKOM_BOOT_OK__ = false;
+
+  function showBootError(message) {
+    var login = document.getElementById("loginScreen");
+    var setup = document.getElementById("setupScreen");
+    var app = document.getElementById("app");
+    var msg = document.getElementById("loginMessage");
+
+    if (setup) setup.classList.add("hidden");
+    if (app) app.classList.add("hidden");
+    if (login) login.classList.remove("hidden");
+
+    if (msg) {
+      msg.textContent = message;
+      msg.className = "message error";
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    var login = document.getElementById("loginScreen");
+    if (login) login.classList.remove("hidden");
+
+    var form = document.getElementById("loginForm");
+    if (form) {
+      form.addEventListener("submit", function (event) {
+        if (!window.__PAKKOM_BOOT_OK__) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          showBootError(
+            "Modul aplikasi belum berhasil dimuat. Muat ulang halaman. Jika pesan ini tetap muncul, periksa koneksi ke layanan Firebase."
+          );
+        }
+      }, true);
+    }
+
+    window.setTimeout(function () {
+      if (!window.__PAKKOM_BOOT_OK__) {
+        showBootError(
+          "Modul aplikasi belum berhasil dimuat. Silakan muat ulang halaman atau coba jaringan lain."
+        );
+      }
+    }, 8000);
+  });
+
+  window.addEventListener("error", function (e) {
+    if (!window.__PAKKOM_BOOT_OK__) {
+      showBootError("Aplikasi gagal memuat modul: " + (e.message || "kesalahan tidak diketahui"));
+    }
+  });
+})();
+</script>
+
+<script type="module" src="app.js?v=18.6.3"></script>
+<nav id="adminBottomNav" class="admin-bottom-nav hidden">
+<button data-admin-go="dashboard" data-primary="summary"><b>⌂</b>Ringkasan</button>
+<button data-admin-go="records" data-primary="academic"><b>◫</b>Akademik</button>
+<button data-admin-go="attendance" data-primary="attendance"><b>✓</b>Kehadiran</button>
+<button data-admin-go="settings" data-primary="settings"><b>⚙</b>Pengaturan</button>
+<button id="adminMobileLogoutBtn" class="mobile-logout-btn"><b>↪</b>Keluar</button>
+</nav><nav id="studentBottomNav" class="student-bottom-nav hidden">
 <button data-student-go="studentAcademicV15"><b>▥</b>Akademik</button>
 <button data-student-go="studentAttendanceV15"><b>✓</b>Kehadiran</button>
+<button id="studentMobileLogoutBtn" class="mobile-logout-btn"><b>↪</b>Keluar</button>
 </nav>
 </body>
 </html>

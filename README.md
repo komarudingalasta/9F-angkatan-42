@@ -342,3 +342,72 @@ Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya 
 - Upload bukti ke Google Drive melalui Apps Script: https://script.google.com/macros/s/AKfycbxQWu2CkXHqdSilxwkxLTDN90o0gsFrR_jWE3NbXLHCZAe2Q4INlpO7oW8d1uB0-HyA/exec
 - Link Drive disimpan pada leaveRequests.
 - Admin mendapat tombol Lihat Bukti.
+
+
+## V18.3
+- Manual attendance is simplified: all students default to Present.
+- Admin only taps students who are absent, then chooses Sick / Permission / Absent.
+- No dropdown per student.
+- Reset All Present button added.
+- Approved sick/permission requests automatically update attendance records.
+- Attendance recap refreshes automatically after approval.
+
+
+## V18.4
+- Admin dapat menunjuk siswa tertentu sebagai Petugas Kehadiran.
+- Siswa tetap ber-role student; izin tambahan disimpan sebagai attendanceHelper=true.
+- Petugas siswa mendapat menu tambahan Isi Kehadiran.
+- Input manual tetap default Hadir; klik hanya siswa yang tidak hadir.
+- Status dari pengajuan Izin/Sakit yang sudah disetujui dikunci agar tidak tertimpa petugas siswa.
+- Firestore Rules berubah untuk mengizinkan petugas siswa menulis attendance terbatas.
+
+
+## V18.4.1 Rules Fix
+- Added myNis(), myClass(), and isAttendanceHelper().
+- Attendance helpers are restricted to their own current class.
+- Approved leave/sick attendance records cannot be overwritten by student helpers.
+
+
+## V18.5
+- Menu admin: Ringkasan / Akademik / Kehadiran / Pengaturan.
+- Akademik memakai tab internal Nilai / Perkembangan / Analisis Mapel / Upload.
+- Mobile admin memakai bottom navigation 4 menu.
+- Bottom navigation siswa tetap Akademik / Kehadiran.
+- Akses petugas siswa dipindahkan menjadi kartu di halaman Kehadiran, bukan menu ketiga.
+- Firestore Rules tidak berubah dari V18.4.1.
+
+
+## V18.6
+- Tombol menu atas di mode seluler admin dan siswa dihilangkan.
+- Tombol Keluar ditambahkan pada bottom navigation admin dan siswa.
+- Daftar siswa untuk petugas kehadiran kini berasal dari classRoster, bukan records nilai.
+- Admin otomatis menyinkronkan classRoster saat data dimuat.
+- Saat admin menunjuk petugas siswa, kelas petugas disimpan sebagai attendanceHelperClass.
+- Firestore Rules berubah untuk classRoster.
+
+
+## V18.6.1 — White Screen Safety Fix
+- Removed stale references to the deleted helper bottom-nav button.
+- applyRoleUI rewritten defensively.
+- classRoster sync no longer blocks login/dashboard rendering.
+- Missing optional topbar elements cannot crash showPage.
+- Added global runtime fallback to return to Login instead of a blank white screen.
+- Firestore Rules remain the same as V18.6.
+
+
+## V18.6.2 — Boot-Safe Fix
+- Login is visible by default in HTML and no longer depends on app.js to appear.
+- If the Firebase/CDN module fails or stalls, a watchdog keeps Login visible and shows an error message instead of a white page.
+- App stays hidden until authentication succeeds.
+- Profile-load errors explicitly return to Login.
+- setMessage/setSync are defensive against missing optional DOM nodes.
+- Firestore Rules are unchanged from V18.6.
+
+
+## V18.6.3 — Login Diagnostic Fix
+- Firebase modular CDN pinned from 12.2.1 to stable 10.12.2.
+- Login is visible even when the app module fails.
+- Login form has a non-module fallback: clicking Masuk can no longer silently do nothing.
+- Boot status shows whether the application login module is ready.
+- Authentication errors are displayed more specifically.
+- Firestore Rules unchanged from V18.6.
