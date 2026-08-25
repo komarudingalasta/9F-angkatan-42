@@ -22,3 +22,7 @@ Versi ini adalah rebuild bersih. Tidak membawa struktur halaman/CSS lama dari V1
 
 ## Catatan
 Collection yang digunakan: users, records, studentSummaries, subjects, classRoster, attendance, leaveRequests.
+
+
+## V21 UI & Insight
+Dashboard command center, status absensi harian, panel Perlu Perhatian, kalender kehadiran siswa, dan indikator absensi tersimpan. Firestore Rules tidak berubah dari V20.

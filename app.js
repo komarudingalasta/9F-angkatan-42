@@ -180,10 +180,35 @@ function renderAdminDashboard(){
   records.forEach(r=>{const n=String(r.nis);const old=latestByNis.get(n);if(!old||semesterRank(r.semester)>=semesterRank(old.semester))latestByNis.set(n,r)});
   const avgs=[...latestByNis.values()].map(rowAvg).filter(Number.isFinite);
   $("dashAverage").textContent=avgs.length?fmt(avgs.reduce((a,b)=>a+b,0)/avgs.length):"—";
-  $("dashPresent").textContent=attendance.filter(x=>x.date===today()&&x.status==="Hadir").length;
+  const todayRows=attendance.filter(x=>x.date===today());
+  $("dashPresent").textContent=todayRows.filter(x=>x.status==="Hadir").length;
+  $("dashAttendanceState").textContent=todayRows.length?`${todayRows.length} siswa tercatat`:"Belum diabsen";
   const pending=leaveRequests.filter(x=>x.status==="Menunggu").length;$("dashPending").textContent=pending;
-  renderAdminTrend();
+  renderAttentionList(); renderTodayAttendanceSummary(todayRows); renderAdminTrend();
 }
+
+function renderAttentionList(){
+  const roster=activeRoster(),month=today().slice(0,7),byNis=new Map();
+  records.forEach(r=>{const n=String(r.nis);if(!byNis.has(n))byNis.set(n,[]);byNis.get(n).push(r)});
+  const issues=[];
+  roster.forEach(s=>{
+    const nis=String(s.nis),att=attendance.filter(x=>String(x.nis)===nis&&x.date?.startsWith(month));
+    const alpa=att.filter(x=>x.status==="Alpa").length,total=att.length,hadir=att.filter(x=>x.status==="Hadir").length,rate=total?hadir/total*100:100;
+    const rs=(byNis.get(nis)||[]).sort((a,b)=>semesterRank(a.semester)-semesterRank(b.semester)),last=rs.at(-1),prev=rs.at(-2),la=rowAvg(last),pa=rowAvg(prev),reasons=[];
+    if(alpa>=3)reasons.push(`Alpa ${alpa}× bulan ini`);
+    if(total>=5&&rate<90)reasons.push(`Kehadiran ${Math.round(rate)}%`);
+    if(Number.isFinite(la)&&Number.isFinite(pa)&&la<=pa-5)reasons.push(`Nilai turun ${fmt(pa-la)} poin`);
+    if(reasons.length)issues.push({name:s.name||s.nama||nis,nis,reasons});
+  });
+  $("attentionCount").textContent=issues.length;
+  $("attentionList").innerHTML=issues.slice(0,6).map(x=>`<div class="attention-row"><div><b>${esc(x.name)}</b><small>NIS ${esc(x.nis)}</small></div><span>${esc(x.reasons.join(" · "))}</span></div>`).join("")||'<div class="empty-state">✓ Tidak ada indikator perhatian utama saat ini.</div>';
+}
+function renderTodayAttendanceSummary(rows){
+  const h=rows.filter(x=>x.status==="Hadir").length,s=rows.filter(x=>x.status==="Sakit").length,i=rows.filter(x=>x.status==="Izin").length,a=rows.filter(x=>x.status==="Alpa").length;
+  $("todayAttendanceTitle").textContent=rows.length?"Kehadiran sudah tercatat":"Kehadiran belum diisi";
+  $("todayAttendanceSummary").innerHTML=rows.length?`<div><strong>${h}</strong><small>Hadir</small></div><div><strong>${s}</strong><small>Sakit</small></div><div><strong>${i}</strong><small>Izin</small></div><div><strong>${a}</strong><small>Alpa</small></div>`:`<div class="empty-state wide-empty">Belum ada data kehadiran hari ini.</div>`;
+}
+
 function renderAdminTrend(){
   const semesters=unique(records.map(r=>r.semester)).sort((a,b)=>semesterRank(a)-semesterRank(b));
   const vals=semesters.map(s=>{const rs=records.filter(r=>String(r.semester)===String(s));const a=rs.map(rowAvg).filter(Number.isFinite);return a.length?a.reduce((x,y)=>x+y,0)/a.length:null});
@@ -303,6 +328,7 @@ function renderAdminAttendance(){
 $("attendanceDate").addEventListener("change",renderAttendanceToday);
 function renderAttendanceToday(){
   const d=$("attendanceDate").value||today(),list=activeRoster();
+  $("attendanceSavedBanner").classList.toggle("hidden",attendance.filter(x=>x.date===d).length===0);
   $("attendanceList").innerHTML=list.map(s=>attendanceRowHtml(s,d,false)).join("")||'<div class="muted">Belum ada daftar siswa.</div>';updateAttendanceCounts();
 }
 $("saveAttendanceBtn").addEventListener("click",async()=>{
@@ -408,10 +434,19 @@ function renderStudentGrades(){
 /* STUDENT ATTENDANCE */
 function renderStudentAttendance(){
   $("helperAccessCard").classList.toggle("hidden",profile?.attendanceHelper!==true);
+  if(!$("studentAttendanceMonth").value)$("studentAttendanceMonth").value=today().slice(0,7);
   const h=attendance.filter(x=>x.status==="Hadir").length,s=attendance.filter(x=>x.status==="Sakit").length,i=attendance.filter(x=>x.status==="Izin").length,a=attendance.filter(x=>x.status==="Alpa").length;
   $("stuH").textContent=h;$("stuS").textContent=s;$("stuI").textContent=i;$("stuA").textContent=a;
   $("studentAttendanceHistory").innerHTML=[...attendance].sort((x,y)=>String(y.date).localeCompare(String(x.date))).map(x=>`<div class="history-row"><b>${esc(x.date)}</b> · ${esc(x.status)}${x.note?`<small> · ${esc(x.note)}</small>`:""}</div>`).join("")||'<div class="muted">Belum ada data kehadiran.</div>';
-  $("studentLeaveHistory").innerHTML=[...leaveRequests].sort((x,y)=>String(y.createdAt||"").localeCompare(String(x.createdAt||""))).map(x=>`<div class="history-row"><b>${esc(x.type)} · ${esc(x.startDate)}</b><small>${esc(x.status||"Menunggu")}${x.note?` · ${esc(x.note)}`:""}</small></div>`).join("")||'<div class="muted">Belum ada pengajuan.</div>';
+  $("studentLeaveHistory").innerHTML=[...leaveRequests].sort((x,y)=>String(y.createdAt||"").localeCompare(String(x.createdAt||""))).map(x=>`<div class="history-row"><b>${esc(x.type)} · ${esc(x.startDate)}</b><small>${esc(x.status||"Menunggu")}${x.note?` · ${esc(x.note)}`:""}</small></div>`).join("")||'<div class="muted">Belum ada pengajuan.</div>';  renderStudentAttendanceCalendar();
+}
+$("studentAttendanceMonth").addEventListener("change",renderStudentAttendanceCalendar);
+function renderStudentAttendanceCalendar(){
+  const month=$("studentAttendanceMonth").value||today().slice(0,7),[y,m]=month.split("-").map(Number),days=new Date(y,m,0).getDate(),first=new Date(y,m-1,1).getDay(),byDate=new Map(attendance.filter(x=>x.date?.startsWith(month)).map(x=>[x.date,x]));
+  let html=["Min","Sen","Sel","Rab","Kam","Jum","Sab"].map(x=>`<div class="cal-head">${x}</div>`).join("");
+  for(let i=0;i<first;i++)html+='<div class="cal-day blank"></div>';
+  for(let d=1;d<=days;d++){const date=`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`,r=byDate.get(date),code=r?.status?.[0]?.toLowerCase()||"";html+=`<div class="cal-day ${code?`cal-${code}`:""}"><b>${d}</b>${r?`<small>${esc(r.status)}</small>`:""}</div>`}
+  $("studentAttendanceCalendar").innerHTML=html;
 }
 $("openHelperBtn").addEventListener("click",()=>showPage("studentHelper"));$("backToStudentAttendanceBtn").addEventListener("click",()=>showPage("studentAttendance"));
 async function loadHelperRoster(){

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#1559b7">
   <title>PakKom Student Analytics</title>
-  <link rel="stylesheet" href="style.css?v=20.0">
+  <link rel="stylesheet" href="style.css?v=21.0">
 </head>
 <body>
 <section id="loginScreen" class="auth-screen">
@@ -53,10 +53,21 @@
         <div><span class="eyebrow">RINGKASAN</span><h3>Halo, <span id="adminGreeting">Admin</span></h3><p>Kondisi akademik dan kehadiran kelas.</p></div>
       </div>
       <div class="stats-grid">
-        <article class="stat"><small>Siswa</small><strong id="dashStudentCount">0</strong></article>
-        <article class="stat"><small>Rata-rata terbaru</small><strong id="dashAverage">—</strong></article>
-        <article class="stat"><small>Hadir hari ini</small><strong id="dashPresent">0</strong></article>
-        <article class="stat"><small>Pengajuan menunggu</small><strong id="dashPending">0</strong></article>
+        <article class="stat"><small>Siswa</small><strong id="dashStudentCount">0</strong><span>kelas aktif</span></article>
+        <article class="stat"><small>Rata-rata terbaru</small><strong id="dashAverage">—</strong><span>akademik kelas</span></article>
+        <article class="stat"><small>Kehadiran hari ini</small><strong id="dashPresent">0</strong><span id="dashAttendanceState">Belum diperiksa</span></article>
+        <article class="stat actionable" data-page="adminAttendance"><small>Pengajuan menunggu</small><strong id="dashPending">0</strong><span>Buka pengajuan →</span></article>
+      </div>
+      <div class="dashboard-grid">
+        <div class="card attention-card">
+          <div class="section-head"><div><span class="eyebrow">PERLU PERHATIAN</span><h3>Siswa yang perlu ditindaklanjuti</h3></div><span id="attentionCount" class="attention-count">0</span></div>
+          <div id="attentionList" class="attention-list"></div>
+        </div>
+        <div class="card">
+          <span class="eyebrow">KEHADIRAN HARI INI</span><h3 id="todayAttendanceTitle">Status absensi</h3>
+          <div id="todayAttendanceSummary" class="today-summary"></div>
+          <button class="btn primary wide" type="button" data-page="adminAttendance">Buka Kehadiran</button>
+        </div>
       </div>
       <div class="card">
         <div class="section-head"><div><span class="eyebrow">AKADEMIK</span><h3>Rata-rata per semester</h3></div></div>
@@ -107,6 +118,7 @@
       <div id="attendanceTodayPanel" class="tab-panel">
         <div class="card">
           <div class="section-head responsive"><div><span class="eyebrow">KEHADIRAN</span><h3>Isi Kehadiran</h3><p>Semua siswa default Hadir. Klik hanya yang tidak hadir.</p></div><input id="attendanceDate" type="date"></div>
+          <div id="attendanceSavedBanner" class="saved-banner hidden">✓ Kehadiran tanggal ini sudah tersimpan. Admin tetap dapat melakukan koreksi.</div>
           <div class="status-summary"><span>H <b id="countH">0</b></span><span>S <b id="countS">0</b></span><span>I <b id="countI">0</b></span><span>A <b id="countA">0</b></span></div>
           <div id="attendanceList" class="attendance-list"></div>
           <div class="sticky-actions"><div id="attendanceSaveMessage" class="message"></div><button id="saveAttendanceBtn" class="btn primary" type="button">Simpan Kehadiran</button></div>
@@ -179,7 +191,12 @@
           <div><small>Alpa</small><strong id="stuA">0</strong></div>
         </div>
       </div>
-      <div class="card"><span class="eyebrow">RIWAYAT</span><h3>Kehadiran</h3><div id="studentAttendanceHistory" class="history-list"></div></div>
+      <div class="card">
+        <div class="section-head responsive"><div><span class="eyebrow">KALENDER</span><h3>Kehadiran Bulanan</h3></div><input id="studentAttendanceMonth" type="month"></div>
+        <div class="calendar-legend"><span class="cal-h">Hadir</span><span class="cal-s">Sakit</span><span class="cal-i">Izin</span><span class="cal-a">Alpa</span></div>
+        <div id="studentAttendanceCalendar" class="attendance-calendar"></div>
+      </div>
+      <div class="card"><span class="eyebrow">RIWAYAT</span><h3>Kehadiran Terbaru</h3><div id="studentAttendanceHistory" class="history-list"></div></div>
       <div class="card"><span class="eyebrow">PENGAJUAN</span><h3>Izin & Sakit</h3><div id="studentLeaveHistory" class="history-list"></div></div>
     </section>
 
@@ -210,10 +227,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="firebase-config.js?v=20.0"></script>
+<script src="firebase-config.js?v=21.0"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="app.js?v=20.0"></script>
+<script src="app.js?v=21.0"></script>
 </body>
 </html>
