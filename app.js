@@ -457,13 +457,27 @@ $("openHelperBtn").addEventListener("click",()=>showPage("studentHelper"));$("ba
 async function loadHelperRoster(){
   if(profile?.attendanceHelper!==true)throw new Error("Akses petugas tidak aktif.");
   const cls=String(profile.attendanceHelperClass||profile.kelas||"").trim();if(!cls)throw new Error("Kelas petugas belum ditetapkan.");
-  const [r,a]=await Promise.all([db.collection("classRoster").get(),db.collection("attendance").where("date","==",today()).get()]);
-  classRoster=r.docs.map(d=>({id:d.id,...d.data()})).filter(x=>String(x.kelas)===cls);attendance=a.docs.map(d=>({id:d.id,...d.data()}));return cls;
+  const [r,a]=await Promise.all([
+    db.collection("classRoster").get(),
+    db.collection("attendance")
+      .where("date","==",today())
+      .where("kelas","==",cls)
+      .get()
+  ]);
+  classRoster=r.docs.map(d=>({id:d.id,...d.data()})).filter(x=>String(x.kelas)===cls);
+  attendance=a.docs.map(d=>({id:d.id,...d.data()}));
+  return cls;
 }
 async function renderHelperAttendance(){
   $("helperAttendanceList").innerHTML='<div class="muted">Memuat daftar siswa…</div>';
   try{const cls=await loadHelperRoster();$("helperTitle").textContent=`Isi Kehadiran ${cls}`;$("helperAttendanceList").innerHTML=classRoster.sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(s=>attendanceRowHtml(s,today(),true)).join("")||'<div class="muted">Daftar siswa kelas masih kosong. Hubungi admin untuk Sinkronkan Daftar Siswa.</div>'}
-  catch(e){$("helperAttendanceList").innerHTML=`<div class="message error">${esc(e.message)}</div>`}
+  catch(e){
+    console.error("Helper attendance load error:",e);
+    let text=e.message||String(e);
+    if((e.code||"").includes("permission-denied"))text="Akses kehadiran kelas ditolak. Pastikan status Petugas Kehadiran aktif dan kelas petugas sesuai.";
+    if((e.code||"").includes("failed-precondition"))text="Query kehadiran membutuhkan index Firestore untuk tanggal + kelas.";
+    $("helperAttendanceList").innerHTML=`<div class="message error">${esc(text)}</div>`;
+  }
 }
 $("saveHelperAttendanceBtn").addEventListener("click",async()=>{
   const rows=[...$("helperAttendanceList").querySelectorAll(".att-row")],cls=String(profile.attendanceHelperClass||profile.kelas||"");

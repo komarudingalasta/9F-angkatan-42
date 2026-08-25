@@ -34,3 +34,10 @@ Dashboard command center, status absensi harian, panel Perlu Perhatian, kalender
 - Helper functions Rules aman jika profil belum ada.
 - Loader data sekarang menunjukkan collection yang ditolak jika terjadi permission error.
 - Firestore Rules BERUBAH dan wajib dipublish.
+
+
+## V21.2 Helper Attendance Query Fix
+- Query attendance petugas difilter berdasarkan tanggal dan kelas tugas.
+- Query diselaraskan dengan Firestore Rules.
+- Pesan error untuk permission/index dibuat lebih spesifik.
+- Firestore Rules tidak berubah dari V21.1.
