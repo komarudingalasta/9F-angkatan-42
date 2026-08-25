@@ -827,3 +827,77 @@ body.auth-locked #app{display:none!important}
   color:#8a94a6;
 }
 .boot-status.ready{color:#198754}
+
+/* ===== V18.6.7 UI + HELPER CLEANUP ===== */
+
+/* Student bottom nav = exactly two primary items */
+@media(max-width:900px){
+  body.student-mode #studentBottomNav{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:8px!important;
+    padding:7px 12px calc(8px + env(safe-area-inset-bottom))!important;
+  }
+
+  body.student-mode #studentBottomNav button{
+    min-width:0!important;
+    width:100%!important;
+    padding:8px 6px!important;
+    font-size:10px!important;
+    border-radius:12px!important;
+  }
+
+  body.student-mode #studentBottomNav button b{
+    display:block!important;
+    font-size:18px!important;
+    line-height:1!important;
+    margin-bottom:3px!important;
+  }
+
+  .student-floating-logout{
+    display:flex!important;
+    position:fixed!important;
+    top:10px!important;
+    right:10px!important;
+    z-index:9999!important;
+    align-items:center!important;
+    gap:5px!important;
+    padding:8px 10px!important;
+    border:1px solid #f2cfd3!important;
+    border-radius:999px!important;
+    background:#fff!important;
+    color:#c73d4b!important;
+    box-shadow:0 5px 18px rgba(40,55,85,.10)!important;
+    font-size:9px!important;
+    font-weight:800!important;
+  }
+
+  .student-floating-logout span{font-size:14px!important}
+  .student-floating-logout b{font-size:9px!important}
+}
+
+body:not(.student-mode) .student-floating-logout{
+  display:none!important;
+}
+
+/* Helper sync card */
+.helper-sync-box{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  margin:0 0 12px;
+  padding:12px 13px;
+  border:1px solid #d9e5f5;
+  border-radius:13px;
+  background:#f6f9fe;
+}
+.helper-sync-box b,.helper-sync-box small{display:block}
+.helper-sync-box small{margin-top:3px;font-size:9px;color:var(--muted)}
+@media(max-width:620px){
+  .helper-sync-box{
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .helper-sync-box .btn{width:100%}
+}

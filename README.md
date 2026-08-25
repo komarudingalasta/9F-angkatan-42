@@ -437,3 +437,12 @@ Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya 
 - Helper reads classRoster safely and filters its assigned class locally.
 - Student helper page shows the actual roster error if loading fails.
 - Firestore Rules changed: attendance helpers may read classRoster (contains only NIS/name/class, no grades).
+
+
+## V18.6.7 — Student Nav + Helper Cleanup
+- Student bottom navigation now contains only Academic and Attendance.
+- Logout moved to a separate compact button, not a third navigation tab.
+- Admin helper settings show explicit classRoster sync status.
+- Sync button reports number of students synchronized.
+- Helper error messages now explain exactly what admin must do.
+- Firestore Rules unchanged from V18.6.6.

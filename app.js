@@ -539,7 +539,7 @@ function renderSubjectChart(){
 }
 function renderSettings(){
   ensureSubjectObjects();
-      syncClassRosterFromRecords().catch(e=>console.warn("Roster sync",e));
+      syncClassRosterFromRecords().then(()=>refreshClassRosterStatus()).catch(e=>console.warn("Roster sync",e));
       const sorted=[...subjects].sort((a,b)=>(a.order??999)-(b.order??999));
   $("subjectSettingsTable").querySelector("tbody").innerHTML=sorted.map(s=>`<tr data-id="${escapeAttr(s.id||s.key)}"><td><input class="settings-input order-input" type="number" value="${Number(s.order??999)}"></td><td>${escapeHtml(s.key)}</td><td><input class="settings-input name-input" value="${escapeAttr(s.name||titleCase(s.key))}"></td><td><input class="settings-input short-input" value="${escapeAttr(s.short||s.name||titleCase(s.key))}"></td><td><select class="settings-input active-input"><option value="true" ${s.active!==false?"selected":""}>Aktif</option><option value="false" ${s.active===false?"selected":""}>Nonaktif</option></select></td><td><button class="btn secondary save-subject">Simpan</button></td></tr>`).join("");
   $("subjectSettingsTable").querySelectorAll(".save-subject").forEach(btn=>btn.onclick=async()=>{
@@ -1527,6 +1527,7 @@ const _oldRenderSettingsV184=renderSettings;
 renderSettings=function(){
   _oldRenderSettingsV184();
   setTimeout(renderAttendanceHelpers,0);
+  setTimeout(refreshClassRosterStatus,0);
 };
 
 function helperCurrentClass(){
@@ -1560,7 +1561,7 @@ async function renderStudentAttendanceHelper(){
         </div>
         <span class="quick-status">${escapeHtml(status)}</span>
       </div>`;
-    }).join("")||'<div class="empty">Belum ada daftar siswa kelas. Minta admin membuka web satu kali untuk menyinkronkan daftar siswa.</div>';
+    }).join("")||'<div class="empty">Daftar siswa kelas masih kosong. Minta admin membuka Pengaturan → Petugas Kehadiran lalu tekan Sinkronkan Daftar Siswa.</div>';
   }catch(e){
     console.error(e);
     $("helperAttendanceList").innerHTML=`<div class="empty">Daftar siswa belum dapat dimuat: ${escapeHtml(e?.message||e)}</div>`;
@@ -1656,7 +1657,7 @@ async function syncClassRosterFromRecords(){
 }
 async function loadHelperClassRoster(){
   const cls=String(currentProfile?.attendanceHelperClass||currentProfile?.kelas||"").trim();
-  if(!cls)throw new Error("Kelas petugas belum ditetapkan oleh admin.");
+  if(!cls)throw new Error("Kelas petugas belum ditetapkan. Admin perlu menonaktifkan lalu mengaktifkan kembali status Petugas setelah sinkronisasi.");
 
   // Read permitted classRoster documents, then filter locally.
   // This is more reliable across Firebase Compat and avoids query/index issues.
@@ -1669,9 +1670,6 @@ async function loadHelperClassRoster(){
 
 async function mobileLogout(){try{await signOut(auth)}catch(e){console.error(e)}}
 $("adminMobileLogoutBtn")?.addEventListener("click",mobileLogout);
-$("studentMobileLogoutBtn")?.addEventListener("click",mobileLogout);
-
-
 window.addEventListener("error",e=>{
   console.error("Runtime error:",e.error||e.message);
   const app=document.getElementById("app");
@@ -1689,15 +1687,34 @@ window.addEventListener("unhandledrejection",e=>{
 
 $("syncClassRosterBtn")?.addEventListener("click",async()=>{
   const btn=$("syncClassRosterBtn");
+  const status=$("classRosterStatus");
   btn.disabled=true;
+  if(status)status.textContent="Menyinkronkan...";
   setMessage("attendanceHelperMessage","Menyinkronkan daftar siswa...");
   try{
     const total=await syncClassRosterFromRecords();
+    if(status)status.textContent=total?`${total} siswa tersinkron`:"Tidak ada siswa yang dapat disinkronkan";
     setMessage("attendanceHelperMessage",`${total} siswa berhasil disinkronkan ke daftar kehadiran.`);
     await renderAttendanceHelpers();
   }catch(e){
+    if(status)status.textContent="Sinkronisasi gagal";
     setMessage("attendanceHelperMessage","Sinkronisasi gagal: "+(e.message||e),true);
   }finally{
     btn.disabled=false;
   }
 });
+
+$("studentFloatingLogoutBtn")?.addEventListener("click",mobileLogout);
+
+
+async function refreshClassRosterStatus(){
+  const el=$("classRosterStatus");
+  if(!el || currentProfile?.role!=="admin")return;
+  try{
+    const snap=await getDocs(collection(db,"classRoster"));
+    const count=snap.docs.length;
+    el.textContent=count?`${count} siswa tersinkron`:"Belum ada siswa tersinkron";
+  }catch(e){
+    el.textContent="Status sinkronisasi belum dapat dibaca";
+  }
+}

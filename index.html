@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#174b9e">
   <title>PakKom Student Analytics</title>
-  <link rel="stylesheet" href="style.css?v=18.6.6">
+  <link rel="stylesheet" href="style.css?v=18.6.7">
 </head>
 <body>
   <section id="setupScreen" class="center-screen hidden auth-screen">
@@ -255,7 +255,13 @@
         <p>Pilih siswa yang boleh membantu mengisi kehadiran manual.</p>
       </div>
     </div>
-    <div class="helper-toolbar"><button id="syncClassRosterBtn" class="btn small">Sinkronkan Daftar Siswa</button></div>
+    <div class="helper-sync-box">
+      <div>
+        <b>Daftar Siswa Kehadiran</b>
+        <small id="classRosterStatus">Belum diperiksa</small>
+      </div>
+      <button id="syncClassRosterBtn" class="btn primary small">Sinkronkan Daftar Siswa</button>
+    </div>
     <div id="attendanceHelperList" class="helper-list"></div>
     <div id="attendanceHelperMessage" class="message"></div>
   </div>
@@ -483,6 +489,10 @@
   </div>
 </section>
 
+<button id="studentFloatingLogoutBtn" class="student-floating-logout student-only hidden" type="button" title="Keluar">
+  <span>↪</span><b>Keluar</b>
+</button>
+
 </main>
   </div>
 
@@ -544,11 +554,11 @@
 })();
 </script>
 
-<script src="firebase-config.js?v=18.6.6"></script>
+<script src="firebase-config.js?v=18.6.7"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="app.js?v=18.6.6"></script>
+<script src="app.js?v=18.6.7"></script>
 <nav id="adminBottomNav" class="admin-bottom-nav hidden">
 <button data-admin-go="dashboard" data-primary="summary"><b>⌂</b>Ringkasan</button>
 <button data-admin-go="records" data-primary="academic"><b>◫</b>Akademik</button>
@@ -558,7 +568,6 @@
 </nav><nav id="studentBottomNav" class="student-bottom-nav hidden">
 <button data-student-go="studentAcademicV15"><b>▥</b>Akademik</button>
 <button data-student-go="studentAttendanceV15"><b>✓</b>Kehadiran</button>
-<button id="studentMobileLogoutBtn" class="mobile-logout-btn"><b>↪</b>Keluar</button>
 </nav>
 </body>
 </html>
