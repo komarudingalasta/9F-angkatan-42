@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#1559b7">
+  <title>PakKom Student Analytics</title>
+  <link rel="stylesheet" href="style.css?v=21.1">
+</head>
+<body>
+<section id="loginScreen" class="auth-screen">
+  <div class="login-card">
+    <div class="brand-mark">PK</div>
+    <h1>PakKom Student Analytics</h1>
+    <p class="muted">Akademik dan kehadiran siswa dalam satu tempat.</p>
+    <form id="loginForm">
+      <label>Email admin atau NIS
+        <input id="loginId" autocomplete="username" required>
+      </label>
+      <label>Password
+        <div class="password-row">
+          <input id="loginPassword" type="password" autocomplete="current-password" required>
+          <button id="togglePassword" type="button" class="icon-btn">👁</button>
+        </div>
+      </label>
+      <button class="btn primary wide" type="submit">Masuk</button>
+    </form>
+    <button id="forgotPasswordBtn" class="link-btn" type="button">Lupa password admin?</button>
+    <div id="loginMessage" class="message"></div>
+    <div id="bootStatus" class="boot-status">Memuat sistem…</div>
+  </div>
+</section>
+
+<div id="app" class="app hidden">
+  <aside class="sidebar">
+    <div class="sidebar-brand"><span>PK</span><div><b>PakKom</b><small>Student Analytics</small></div></div>
+    <nav id="desktopNav"></nav>
+    <div class="sidebar-user">
+      <small>Akun</small><b id="sidebarUserName">—</b><span id="sidebarRole">—</span>
+      <button id="desktopLogoutBtn" class="btn ghost danger wide" type="button">Keluar</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div><h2 id="pageTitle">Ringkasan</h2><p id="pageSubtitle"></p></div>
+      <button id="mobileLogoutBtn" class="btn ghost danger compact" type="button">Keluar</button>
+    </header>
+
+    <!-- ADMIN -->
+    <section id="adminDashboardPage" class="page admin-page hidden">
+      <div class="hero">
+        <div><span class="eyebrow">RINGKASAN</span><h3>Halo, <span id="adminGreeting">Admin</span></h3><p>Kondisi akademik dan kehadiran kelas.</p></div>
+      </div>
+      <div class="stats-grid">
+        <article class="stat"><small>Siswa</small><strong id="dashStudentCount">0</strong><span>kelas aktif</span></article>
+        <article class="stat"><small>Rata-rata terbaru</small><strong id="dashAverage">—</strong><span>akademik kelas</span></article>
+        <article class="stat"><small>Kehadiran hari ini</small><strong id="dashPresent">0</strong><span id="dashAttendanceState">Belum diperiksa</span></article>
+        <article class="stat actionable" data-page="adminAttendance"><small>Pengajuan menunggu</small><strong id="dashPending">0</strong><span>Buka pengajuan →</span></article>
+      </div>
+      <div class="dashboard-grid">
+        <div class="card attention-card">
+          <div class="section-head"><div><span class="eyebrow">PERLU PERHATIAN</span><h3>Siswa yang perlu ditindaklanjuti</h3></div><span id="attentionCount" class="attention-count">0</span></div>
+          <div id="attentionList" class="attention-list"></div>
+        </div>
+        <div class="card">
+          <span class="eyebrow">KEHADIRAN HARI INI</span><h3 id="todayAttendanceTitle">Status absensi</h3>
+          <div id="todayAttendanceSummary" class="today-summary"></div>
+          <button class="btn primary wide" type="button" data-page="adminAttendance">Buka Kehadiran</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-head"><div><span class="eyebrow">AKADEMIK</span><h3>Rata-rata per semester</h3></div></div>
+        <div class="chart-wrap"><canvas id="adminTrendChart"></canvas></div>
+      </div>
+    </section>
+
+    <section id="adminAcademicPage" class="page admin-page hidden">
+      <div class="tabs" id="academicTabs">
+        <button data-tab="academicTablePanel" class="active">Data Nilai</button>
+        <button data-tab="academicUploadPanel">Upload Excel</button>
+        <button data-tab="academicSubjectsPanel">Mata Pelajaran</button>
+      </div>
+      <div id="academicTablePanel" class="tab-panel">
+        <div class="toolbar">
+          <select id="academicClassFilter"><option value="">Semua kelas</option></select>
+          <select id="academicSemesterFilter"><option value="">Semua semester</option></select>
+          <input id="academicSearch" placeholder="Cari nama / NIS">
+        </div>
+        <div class="card table-card"><div class="table-scroll"><table>
+          <thead><tr><th>NIS</th><th>Nama</th><th>Kelas</th><th>Semester</th><th>Rata-rata</th></tr></thead>
+          <tbody id="academicTableBody"></tbody>
+        </table></div></div>
+      </div>
+      <div id="academicUploadPanel" class="tab-panel hidden">
+        <div class="card">
+          <span class="eyebrow">IMPORT NILAI</span><h3>Upload leger Excel</h3>
+          <p class="muted">Kolom wajib: NIS/NISN, Nama, Kelas, Semester. Kolom angka lain dibaca sebagai nilai mata pelajaran.</p>
+          <input id="gradeFile" type="file" accept=".xlsx,.xls,.csv">
+          <div id="gradePreview" class="preview-box">Belum ada file.</div>
+          <button id="saveGradeImportBtn" class="btn primary" type="button" disabled>Simpan Data Nilai</button>
+          <div id="gradeImportMessage" class="message"></div>
+        </div>
+      </div>
+      <div id="academicSubjectsPanel" class="tab-panel hidden">
+        <div class="card"><span class="eyebrow">MAPEL</span><h3>Mata pelajaran terdeteksi</h3><div id="subjectList" class="chip-list"></div></div>
+      </div>
+    </section>
+
+    <section id="adminAttendancePage" class="page admin-page hidden">
+      <div class="tabs" id="attendanceTabs">
+        <button data-tab="attendanceTodayPanel" class="active">Hari Ini</button>
+        <button data-tab="attendanceRequestsPanel">Pengajuan <span id="requestBadge" class="badge hidden">0</span></button>
+        <button data-tab="attendanceRecapPanel">Rekap</button>
+        <button data-tab="attendanceUploadPanel">Upload</button>
+      </div>
+
+      <div id="attendanceTodayPanel" class="tab-panel">
+        <div class="card">
+          <div class="section-head responsive"><div><span class="eyebrow">KEHADIRAN</span><h3>Isi Kehadiran</h3><p>Semua siswa default Hadir. Klik hanya yang tidak hadir.</p></div><input id="attendanceDate" type="date"></div>
+          <div id="attendanceSavedBanner" class="saved-banner hidden">✓ Kehadiran tanggal ini sudah tersimpan. Admin tetap dapat melakukan koreksi.</div>
+          <div class="status-summary"><span>H <b id="countH">0</b></span><span>S <b id="countS">0</b></span><span>I <b id="countI">0</b></span><span>A <b id="countA">0</b></span></div>
+          <div id="attendanceList" class="attendance-list"></div>
+          <div class="sticky-actions"><div id="attendanceSaveMessage" class="message"></div><button id="saveAttendanceBtn" class="btn primary" type="button">Simpan Kehadiran</button></div>
+        </div>
+      </div>
+
+      <div id="attendanceRequestsPanel" class="tab-panel hidden">
+        <div class="card"><span class="eyebrow">PENGAJUAN</span><h3>Izin & Sakit</h3><div id="leaveRequestList" class="request-list"></div></div>
+      </div>
+
+      <div id="attendanceRecapPanel" class="tab-panel hidden">
+        <div class="card"><div class="section-head responsive"><div><span class="eyebrow">REKAP</span><h3>Rekap Kehadiran</h3></div><input id="recapMonth" type="month"></div>
+        <div class="table-scroll"><table><thead><tr><th>NIS</th><th>Nama</th><th>H</th><th>S</th><th>I</th><th>A</th><th>% Hadir</th></tr></thead><tbody id="recapBody"></tbody></table></div></div>
+      </div>
+
+      <div id="attendanceUploadPanel" class="tab-panel hidden">
+        <div class="card">
+          <span class="eyebrow">IMPORT KEHADIRAN</span><h3>Upload format bulanan</h3>
+          <p class="muted">Format: NIS | Nama | 1 | 2 | ... | 31. Isi H, S, I, A. Sel kosong dilewati.</p>
+          <input id="attendanceUploadMonth" type="month">
+          <input id="attendanceFile" type="file" accept=".xlsx,.xls,.csv">
+          <div id="attendancePreview" class="preview-box">Belum ada file.</div>
+          <button id="saveAttendanceImportBtn" class="btn primary" type="button" disabled>Simpan Kehadiran</button>
+          <div id="attendanceImportMessage" class="message"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="adminSettingsPage" class="page admin-page hidden">
+      <div class="card">
+        <span class="eyebrow">PETUGAS KEHADIRAN</span><h3>Pilih siswa pembantu absensi</h3>
+        <p class="muted">Admin cukup aktifkan siswa. Tidak perlu mengubah Firebase manual.</p>
+        <div class="sync-row"><div><b>Daftar siswa kehadiran</b><small id="rosterStatus">Memeriksa…</small></div><button id="syncRosterBtn" class="btn primary" type="button">Sinkronkan Daftar Siswa</button></div>
+        <div id="helperList" class="helper-list"></div>
+        <div id="helperMessage" class="message"></div>
+      </div>
+    </section>
+
+    <!-- STUDENT -->
+    <section id="studentAcademicPage" class="page student-page hidden">
+      <div class="student-hero">
+        <span class="eyebrow">AKADEMIK SAYA</span><h2 id="studentGreeting">Selamat datang</h2><p id="studentMeta"></p>
+        <div class="student-metrics">
+          <div><small>Rata-rata terbaru</small><strong id="studentLatestAvg">—</strong></div>
+          <div><small>Rata-rata gabungan</small><strong id="studentCombinedAvg">—</strong></div>
+          <div><small>Posisi akademik</small><strong id="studentPosition">—</strong></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-head responsive"><div><span class="eyebrow">PERKEMBANGAN</span><h3>Perjalanan Akademik</h3></div><select id="studentMetricSelect"><option value="average">Rata-rata</option></select></div>
+        <div class="chart-wrap"><canvas id="studentTrendChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="section-head responsive"><div><span class="eyebrow">NILAI</span><h3>Nilai Saya</h3></div><select id="studentSemesterSelect"></select></div>
+        <div id="studentGradeGrid" class="grade-grid"></div>
+      </div>
+    </section>
+
+    <section id="studentAttendancePage" class="page student-page hidden">
+      <div id="helperAccessCard" class="card helper-access hidden">
+        <div><span class="eyebrow">PETUGAS KEHADIRAN</span><h3>Bantu Isi Kehadiran Kelas</h3><p>Anda ditunjuk admin sebagai petugas kehadiran.</p></div>
+        <button id="openHelperBtn" class="btn primary" type="button">Mulai Isi Kehadiran</button>
+      </div>
+      <div class="card">
+        <div class="section-head responsive"><div><span class="eyebrow">KEHADIRAN SAYA</span><h3>Ringkasan Kehadiran</h3></div><button id="openLeaveBtn" class="btn primary" type="button">Ajukan Izin / Sakit</button></div>
+        <div class="student-metrics attendance-metrics">
+          <div><small>Hadir</small><strong id="stuH">0</strong></div>
+          <div><small>Sakit</small><strong id="stuS">0</strong></div>
+          <div><small>Izin</small><strong id="stuI">0</strong></div>
+          <div><small>Alpa</small><strong id="stuA">0</strong></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-head responsive"><div><span class="eyebrow">KALENDER</span><h3>Kehadiran Bulanan</h3></div><input id="studentAttendanceMonth" type="month"></div>
+        <div class="calendar-legend"><span class="cal-h">Hadir</span><span class="cal-s">Sakit</span><span class="cal-i">Izin</span><span class="cal-a">Alpa</span></div>
+        <div id="studentAttendanceCalendar" class="attendance-calendar"></div>
+      </div>
+      <div class="card"><span class="eyebrow">RIWAYAT</span><h3>Kehadiran Terbaru</h3><div id="studentAttendanceHistory" class="history-list"></div></div>
+      <div class="card"><span class="eyebrow">PENGAJUAN</span><h3>Izin & Sakit</h3><div id="studentLeaveHistory" class="history-list"></div></div>
+    </section>
+
+    <section id="studentHelperPage" class="page student-page hidden">
+      <div class="card">
+        <div class="section-head responsive"><div><span class="eyebrow">PETUGAS KEHADIRAN</span><h3 id="helperTitle">Isi Kehadiran Kelas</h3><p>Semua siswa default Hadir. Status dari pengajuan yang disetujui tidak dapat ditimpa.</p></div><button id="backToStudentAttendanceBtn" class="btn ghost" type="button">Kembali</button></div>
+        <div id="helperAttendanceList" class="attendance-list"></div>
+        <div class="sticky-actions"><div id="helperSaveMessage" class="message"></div><button id="saveHelperAttendanceBtn" class="btn primary" type="button">Simpan Kehadiran</button></div>
+      </div>
+    </section>
+  </main>
+
+  <nav id="mobileNav" class="mobile-nav"></nav>
+</div>
+
+<div id="leaveModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="section-head"><div><span class="eyebrow">PENGAJUAN</span><h3>Ajukan Izin / Sakit</h3></div><button id="closeLeaveModalBtn" class="icon-btn" type="button">✕</button></div>
+    <label>Jenis<select id="leaveType"><option>Sakit</option><option>Izin</option></select></label>
+    <div class="two-col"><label>Tanggal mulai<input id="leaveStart" type="date"></label><label>Tanggal selesai<input id="leaveEnd" type="date"></label></div>
+    <label>Keterangan<textarea id="leaveNote" rows="3"></textarea></label>
+    <label>Foto bukti <span class="muted">(opsional)</span><input id="leavePhoto" type="file" accept="image/*" capture="environment"></label>
+    <div id="leavePhotoPreview" class="photo-preview hidden"></div>
+    <button id="submitLeaveBtn" class="btn primary wide" type="button">Kirim Pengajuan</button>
+    <div id="leaveMessage" class="message"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="firebase-config.js?v=21.1"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="app.js?v=21.1"></script>
+</body>
+</html>

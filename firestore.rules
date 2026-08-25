@@ -1,0 +1,114 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profilePath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function hasProfile() {
+      return signedIn() && exists(profilePath());
+    }
+
+    function me() {
+      return get(profilePath()).data;
+    }
+
+    function isAdmin() {
+      return hasProfile() && me().role == "admin";
+    }
+
+    function isStudent() {
+      return hasProfile() && me().role == "student";
+    }
+
+    function myNis() {
+      return me().nis;
+    }
+
+    function isHelper() {
+      return isStudent() && me().attendanceHelper == true;
+    }
+
+    function helperClass() {
+      return me().attendanceHelperClass;
+    }
+
+    // Profil akun
+    match /users/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Nilai akademik
+    match /records/{id} {
+      allow get, list: if isAdmin()
+        || (isStudent() && resource.data.nis == myNis());
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Ringkasan/ranking akademik
+    match /studentSummaries/{id} {
+      allow get, list: if isAdmin()
+        || (isStudent() && resource.data.nis == myNis());
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /subjects/{id} {
+      allow get, list: if signedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Daftar siswa untuk admin dan siswa petugas.
+    // Data ini hanya berisi NIS, nama, kelas.
+    match /classRoster/{id} {
+      allow get, list: if isAdmin() || isHelper();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Kehadiran
+    match /attendance/{id} {
+      allow get, list: if isAdmin()
+        || (isStudent() && resource.data.nis == myNis())
+        || (isHelper() && resource.data.kelas == helperClass());
+
+      allow create: if isAdmin()
+        || (isHelper()
+          && request.resource.data.kelas == helperClass()
+          && request.resource.data.source == "Petugas Siswa");
+
+      allow update: if isAdmin()
+        || (isHelper()
+          && resource.data.kelas == helperClass()
+          && request.resource.data.kelas == helperClass()
+          && resource.data.source != "Pengajuan"
+          && request.resource.data.source == "Petugas Siswa");
+
+      allow delete: if isAdmin();
+    }
+
+    // Pengajuan izin/sakit
+    match /leaveRequests/{id} {
+      allow get, list: if isAdmin()
+        || (isStudent() && resource.data.nis == myNis());
+
+      allow create: if isStudent()
+        && request.resource.data.nis == myNis()
+        && request.resource.data.status == "Menunggu"
+        && (request.resource.data.type == "Sakit"
+          || request.resource.data.type == "Izin");
+
+      allow update, delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
