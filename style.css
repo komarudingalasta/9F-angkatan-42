@@ -901,3 +901,101 @@ body:not(.student-mode) .student-floating-logout{
   }
   .helper-sync-box .btn{width:100%}
 }
+
+/* ===== V18.7 FINAL CLEAN UI OVERRIDE ===== */
+.student-floating-logout,.admin-floating-logout{display:none!important}
+
+@media(min-width:901px){
+  body.student-mode #studentBottomNav,
+  body.admin-mode #adminBottomNav{display:none!important}
+  body.student-mode .sidebar,
+  body.admin-mode .sidebar{display:flex!important}
+  body.student-mode .sidebar .admin-only{display:none!important}
+  body.admin-mode .sidebar .student-only{display:none!important}
+  body.student-mode .student-floating-logout,
+  body.admin-mode .admin-floating-logout{display:none!important}
+}
+
+@media(max-width:900px){
+  body.student-mode,
+  body.admin-mode{overflow-x:hidden!important}
+
+  body.student-mode .sidebar,
+  body.admin-mode .sidebar,
+  body.student-mode #sidebarBackdrop,
+  body.admin-mode #sidebarBackdrop,
+  body.student-mode #sidebarToggle,
+  body.admin-mode #sidebarToggle{display:none!important}
+
+  body.student-mode .main,
+  body.admin-mode .main{
+    width:100%!important;max-width:100%!important;
+    padding:12px 12px 92px!important;
+    box-sizing:border-box!important;overflow-x:hidden!important
+  }
+
+  body.student-mode .topbar{display:none!important}
+
+  body.admin-mode .topbar{
+    display:flex!important;position:sticky!important;top:0!important;z-index:50!important;
+    margin:-12px -12px 12px!important;padding:10px 14px!important;min-height:54px!important;
+    background:#fff!important;border-bottom:1px solid #e8edf3!important
+  }
+  body.admin-mode .top-actions{display:none!important}
+
+  body.student-mode #studentBottomNav{
+    display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    position:fixed!important;left:0!important;right:0!important;bottom:0!important;
+    z-index:1000!important;width:100%!important;gap:8px!important;
+    padding:7px 12px calc(8px + env(safe-area-inset-bottom))!important;
+    background:#fff!important;border-top:1px solid #e5eaf1!important;
+    box-shadow:0 -8px 24px rgba(18,44,78,.10)!important;box-sizing:border-box!important
+  }
+  body.student-mode #studentBottomNav button{
+    width:100%!important;min-width:0!important;border:0!important;border-radius:12px!important;
+    background:transparent!important;color:#8490a2!important;padding:7px 5px!important;
+    font-size:10px!important;font-weight:800!important;text-align:center!important
+  }
+  body.student-mode #studentBottomNav button b{
+    display:block!important;font-size:18px!important;line-height:1!important;margin-bottom:3px!important
+  }
+  body.student-mode #studentBottomNav button.active{background:#eef5ff!important;color:#1767df!important}
+
+  body.admin-mode #adminBottomNav{
+    display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    position:fixed!important;left:0!important;right:0!important;bottom:0!important;
+    z-index:1000!important;width:100%!important;gap:4px!important;
+    padding:7px 8px calc(8px + env(safe-area-inset-bottom))!important;
+    background:#fff!important;border-top:1px solid #e5eaf1!important;
+    box-shadow:0 -8px 24px rgba(18,44,78,.10)!important;box-sizing:border-box!important
+  }
+  body.admin-mode #adminBottomNav button{
+    min-width:0!important;border:0!important;border-radius:11px!important;background:transparent!important;
+    color:#8490a2!important;padding:6px 2px!important;font-size:8px!important;font-weight:800!important;text-align:center!important
+  }
+  body.admin-mode #adminBottomNav button b{display:block!important;font-size:17px!important;line-height:1!important;margin-bottom:3px!important}
+  body.admin-mode #adminBottomNav button.active{background:#eef5ff!important;color:#1767df!important}
+
+  body.student-mode .student-floating-logout,
+  body.admin-mode .admin-floating-logout{
+    display:flex!important;position:fixed!important;top:10px!important;right:10px!important;z-index:1100!important;
+    padding:7px 10px!important;border:1px solid #f0ced2!important;border-radius:999px!important;
+    background:#fff!important;color:#bd3947!important;font-size:9px!important;font-weight:800!important;
+    box-shadow:0 4px 14px rgba(24,45,75,.10)!important
+  }
+
+  body.student-mode #studentAcademicV15Page,
+  body.student-mode #studentAttendanceV15Page,
+  body.student-mode #studentAttendanceHelperPage{
+    padding-top:42px!important;width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important
+  }
+
+  body.student-mode .page,
+  body.student-mode .card,
+  body.student-mode .v15-section,
+  body.student-mode #v15Grades,
+  body.student-mode .grade-mobile-list,
+  body.student-mode .grade-mobile-card{
+    max-width:100%!important;min-width:0!important;box-sizing:border-box!important
+  }
+}

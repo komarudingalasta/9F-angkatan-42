@@ -131,7 +131,7 @@ function applyRoleUI(){
   document.body.classList.toggle("student-mode",isStudent);
   document.body.classList.toggle("admin-mode",isAdmin);
 
-  document.querySelectorAll(".admin-only").forEach(el=>el.classList.toggle("hidden",isStudent));
+  document.querySelectorAll(".admin-only").forEach(el=>el.classList.toggle("hidden",!isAdmin));
   document.querySelectorAll(".student-only").forEach(el=>el.classList.toggle("hidden",!isStudent));
 
   $("semesterFilter")?.classList.toggle("hidden",isStudent);
@@ -1718,3 +1718,19 @@ async function refreshClassRosterStatus(){
     el.textContent="Status sinkronisasi belum dapat dibaca";
   }
 }
+
+$("adminFloatingLogoutBtn")?.addEventListener("click",mobileLogout);
+// V18.7 navigation safety fallback
+document.addEventListener("click",function(e){
+  const s=e.target.closest("[data-student-go]");
+  if(s && currentProfile?.role==="student"){
+    e.preventDefault();
+    showPage(s.dataset.studentGo);
+    return;
+  }
+  const a=e.target.closest("[data-admin-go]");
+  if(a && currentProfile?.role==="admin"){
+    e.preventDefault();
+    showPage(a.dataset.adminGo);
+  }
+});

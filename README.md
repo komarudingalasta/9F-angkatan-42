@@ -446,3 +446,14 @@ Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya 
 - Sync button reports number of students synchronized.
 - Helper error messages now explain exactly what admin must do.
 - Firestore Rules unchanged from V18.6.6.
+
+
+## V18.7 Clean UI
+- Removed obsolete student pages from the HTML DOM.
+- Student primary navigation is only Academic and Attendance.
+- Desktop student uses the sidebar and one sidebar Logout; floating Logout is mobile-only.
+- Mobile student uses a two-item bottom nav.
+- Mobile admin uses a four-item bottom nav.
+- Hamburger/sidebar navigation is disabled on mobile to avoid conflicting navigation systems.
+- Added a final responsive CSS override to neutralize conflicting legacy media rules.
+- Firestore Rules unchanged from V18.6.6.
