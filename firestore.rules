@@ -163,8 +163,9 @@ service cloud.firestore {
     // =========================
 
     match /classRoster/{rosterId} {
-      allow read: if isAdmin()
-        || (isAttendanceHelper() && resource.data.kelas == myClass());
+      // classRoster only contains NIS, name, and class; no academic scores.
+      // Attendance helpers need to list it to build the manual attendance screen.
+      allow read: if isAdmin() || isAttendanceHelper();
       allow create, update, delete: if isAdmin();
     }
 

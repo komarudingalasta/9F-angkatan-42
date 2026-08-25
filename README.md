@@ -428,3 +428,12 @@ Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya 
 - Added visible login stages: reading profile and loading page.
 - Profile read errors now display their actual error message.
 - Firestore Rules unchanged from V18.6.
+
+
+## V18.6.6 — Attendance Helper Roster Fix
+- Added admin button: Sync Student List.
+- classRoster sync is explicit and reports how many students were written.
+- Attendance helper class assignment is validated and saved as attendanceHelperClass.
+- Helper reads classRoster safely and filters its assigned class locally.
+- Student helper page shows the actual roster error if loading fails.
+- Firestore Rules changed: attendance helpers may read classRoster (contains only NIS/name/class, no grades).

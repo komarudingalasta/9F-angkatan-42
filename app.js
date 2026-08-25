@@ -1482,19 +1482,44 @@ $("attendanceHelperList")?.addEventListener("change",async e=>{
   input.disabled=true;
   try{
     const row=input.closest(".helper-row");
-    const nis=row?.dataset?.nis||"";
-    const latest=records.filter(r=>String(r.nis)===String(nis))
-      .sort((a,b)=>semesterRank(a.semester)-semesterRank(b.semester)).at(-1);
+    const nis=String(row?.dataset?.nis||"").trim();
+
+    const latest=records
+      .filter(r=>String(r.nis)===nis)
+      .sort((a,b)=>semesterRank(a.semester)-semesterRank(b.semester))
+      .at(-1);
+
+    let helperClass=String(latest?.kelas||"").trim();
+
+    if(input.checked && !helperClass){
+      const rosterSnap=await getDocs(collection(db,"classRoster"));
+      const roster=rosterSnap.docs.map(d=>d.data()).find(x=>String(x.nis)===nis);
+      helperClass=String(roster?.kelas||"").trim();
+    }
+
+    if(input.checked && !helperClass){
+      input.checked=false;
+      throw new Error("Kelas siswa belum ditemukan. Sinkronkan daftar siswa terlebih dahulu.");
+    }
+
     await updateDoc(doc(db,"users",input.dataset.helperUid),{
       attendanceHelper:input.checked,
-      attendanceHelperClass:input.checked?(latest?.kelas||""):"",
+      attendanceHelperClass:input.checked?helperClass:"",
       attendanceHelperUpdatedAt:serverTimestamp()
     });
-    setMessage("attendanceHelperMessage",input.checked?"Akses petugas kehadiran diberikan.":"Akses petugas kehadiran dicabut.");
+
+    setMessage(
+      "attendanceHelperMessage",
+      input.checked
+        ? `Akses petugas kehadiran diberikan untuk kelas ${helperClass}.`
+        : "Akses petugas kehadiran dicabut."
+    );
   }catch(err){
-    input.checked=!input.checked;
-    setMessage("attendanceHelperMessage","Gagal mengubah akses: "+err.message,true);
-  }finally{input.disabled=false}
+    input.checked=false;
+    setMessage("attendanceHelperMessage","Gagal mengubah akses: "+(err.message||err),true);
+  }finally{
+    input.disabled=false;
+  }
 });
 
 // Render helper controls whenever Settings opens.
@@ -1538,7 +1563,7 @@ async function renderStudentAttendanceHelper(){
     }).join("")||'<div class="empty">Belum ada daftar siswa kelas. Minta admin membuka web satu kali untuk menyinkronkan daftar siswa.</div>';
   }catch(e){
     console.error(e);
-    $("helperAttendanceList").innerHTML='<div class="empty">Daftar siswa belum dapat dimuat.</div>';
+    $("helperAttendanceList").innerHTML=`<div class="empty">Daftar siswa belum dapat dimuat: ${escapeHtml(e?.message||e)}</div>`;
   }
 }
 
@@ -1595,29 +1620,51 @@ $("openStudentAttendanceHelperBtn")?.addEventListener("click",()=>{if(currentPro
 
 // ===== V18.6 SAFE CLASS ROSTER =====
 async function syncClassRosterFromRecords(){
-  if(!db || currentProfile?.role!=="admin" || !Array.isArray(records) || !records.length)return;
+  if(!db || currentProfile?.role!=="admin" || !Array.isArray(records) || !records.length)return 0;
+
   const latestByNis=new Map();
   records.forEach(r=>{
     if(!r.nis)return;
     const key=String(r.nis);
     const old=latestByNis.get(key);
-    if(!old||semesterRank(r.semester)>=semesterRank(old.semester))latestByNis.set(key,r);
+    if(!old || semesterRank(r.semester)>=semesterRank(old.semester))latestByNis.set(key,r);
   });
-  let batch=writeBatch(db),count=0;
+
+  let batch=writeBatch(db),count=0,total=0;
   for(const r of latestByNis.values()){
-    batch.set(doc(db,"classRoster",slug(String(r.nis))),{
-      nis:String(r.nis),name:r.nama||"",kelas:r.kelas||"",updatedAt:serverTimestamp()
+    const nis=String(r.nis).trim();
+    const kelas=String(r.kelas||"").trim();
+    if(!nis || !kelas)continue;
+
+    batch.set(doc(db,"classRoster",slug(nis)),{
+      nis,
+      name:r.nama||"",
+      kelas,
+      updatedAt:serverTimestamp()
     },{merge:true});
-    count++;
-    if(count%400===0){await batch.commit();batch=writeBatch(db)}
+
+    count++; total++;
+    if(count>=400){
+      await batch.commit();
+      batch=writeBatch(db);
+      count=0;
+    }
   }
-  await batch.commit();
+
+  if(count>0)await batch.commit();
+  return total;
 }
 async function loadHelperClassRoster(){
-  const cls=currentProfile?.attendanceHelperClass||currentProfile?.kelas||"";
-  if(!cls)return [];
-  const snap=await getDocs(query(collection(db,"classRoster"),where("kelas","==",cls)));
-  return snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  const cls=String(currentProfile?.attendanceHelperClass||currentProfile?.kelas||"").trim();
+  if(!cls)throw new Error("Kelas petugas belum ditetapkan oleh admin.");
+
+  // Read permitted classRoster documents, then filter locally.
+  // This is more reliable across Firebase Compat and avoids query/index issues.
+  const snap=await getDocs(collection(db,"classRoster"));
+  return snap.docs
+    .map(d=>({id:d.id,...d.data()}))
+    .filter(x=>String(x.kelas||"").trim()===cls)
+    .sort((a,b)=>(a.name||"").localeCompare(b.name||""));
 }
 
 async function mobileLogout(){try{await signOut(auth)}catch(e){console.error(e)}}
@@ -1638,4 +1685,19 @@ window.addEventListener("error",e=>{
 });
 window.addEventListener("unhandledrejection",e=>{
   console.error("Unhandled promise:",e.reason);
+});
+
+$("syncClassRosterBtn")?.addEventListener("click",async()=>{
+  const btn=$("syncClassRosterBtn");
+  btn.disabled=true;
+  setMessage("attendanceHelperMessage","Menyinkronkan daftar siswa...");
+  try{
+    const total=await syncClassRosterFromRecords();
+    setMessage("attendanceHelperMessage",`${total} siswa berhasil disinkronkan ke daftar kehadiran.`);
+    await renderAttendanceHelpers();
+  }catch(e){
+    setMessage("attendanceHelperMessage","Sinkronisasi gagal: "+(e.message||e),true);
+  }finally{
+    btn.disabled=false;
+  }
 });
