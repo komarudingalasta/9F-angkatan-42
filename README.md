@@ -50,3 +50,12 @@ Dashboard command center, status absensi harian, panel Perlu Perhatian, kalender
 - classRoster helper query is restricted to the assigned class.
 - classRoster Rules are restricted to helperClass and therefore changed.
 - Firestore Rules MUST be republished.
+
+
+## V21.4 Simple Helper Attendance + No Login Flicker
+- Petugas siswa hanya memilih Hadir atau Tidak Hadir.
+- Tidak Hadir disimpan sebagai Alpa.
+- Sakit/Izin hanya dapat ditetapkan admin atau berasal dari pengajuan yang disetujui.
+- Rules membatasi write petugas hanya status Hadir/Alpa.
+- Startup screen menunggu Firebase memulihkan sesi sehingga login tidak berkedip saat refresh.
+- Firestore Rules BERUBAH dan wajib dipublish.

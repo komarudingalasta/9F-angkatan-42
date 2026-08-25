@@ -27,8 +27,9 @@ function normalizeStatus(v){const x=String(v??"").trim().toUpperCase();return ({
 function attendanceId(nis,date){return `${slug(nis)}_${date}`.slice(0,220)}
 
 function setBoot(text,ok=false){const el=$("bootStatus");if(el){el.textContent=text;el.style.color=ok?"#16803c":"#7b8798"}}
-function showLogin(){ $("app")?.classList.add("hidden"); $("loginScreen")?.classList.remove("hidden"); }
-function showApp(){ $("loginScreen")?.classList.add("hidden"); $("app")?.classList.remove("hidden"); }
+function hideBoot(){ $("bootScreen")?.classList.add("hidden"); }
+function showLogin(){ $("app")?.classList.add("hidden"); $("loginScreen")?.classList.remove("hidden"); hideBoot(); }
+function showApp(){ $("loginScreen")?.classList.add("hidden"); $("app")?.classList.remove("hidden"); hideBoot(); }
 
 const NAV_ADMIN=[
   ["adminDashboard","⌂","Ringkasan","Ringkasan","Kondisi kelas hari ini"],
@@ -310,16 +311,21 @@ function activeRoster(){
 }
 function recordForAttendance(nis,date){return attendance.find(x=>String(x.nis)===String(nis)&&x.date===date)}
 function attendanceRowHtml(s,date,helper=false){
-  const old=recordForAttendance(s.nis,date);const status=old?.status||"Hadir";const locked=helper&&old?.source==="Pengajuan";
+  const old=recordForAttendance(s.nis,date);
+  const locked=helper&&old?.source==="Pengajuan";
+  const rawStatus=old?.status||"Hadir";
+  const status=helper?(rawStatus==="Hadir"?"Hadir":(locked?rawStatus:"Alpa")):rawStatus;
+  const choices=helper?["Hadir","Alpa"]:["Hadir","Sakit","Izin","Alpa"];
+  const label=x=>helper&&x==="Alpa"?"Tidak Hadir":x;
   return `<div class="att-row ${locked?"locked":""}" data-nis="${esc(s.nis)}" data-status="${esc(status)}" data-locked="${locked?"1":"0"}">
-    <div><b>${esc(s.name||s.nama||"-")}</b><small>NIS ${esc(s.nis)}${locked?" · dari pengajuan disetujui":""}</small><div class="status-picker hidden">${["Hadir","Sakit","Izin","Alpa"].map(x=>`<button type="button" data-status-pick="${x}">${x}</button>`).join("")}</div></div>
-    <span class="status-pill">${esc(status)}</span></div>`;
+    <div><b>${esc(s.name||s.nama||"-")}</b><small>NIS ${esc(s.nis)}${locked?" · status dari pengajuan disetujui":helper?" · klik untuk Hadir / Tidak Hadir":""}</small><div class="status-picker hidden">${choices.map(x=>`<button type="button" data-status-pick="${x}" data-status-label="${label(x)}">${label(x)}</button>`).join("")}</div></div>
+    <span class="status-pill">${esc(helper&&!locked?label(status):status)}</span></div>`;
 }
 function bindAttendanceList(id,onChange){
   $(id).onclick=e=>{
     const row=e.target.closest(".att-row");if(!row||row.dataset.locked==="1")return;
     const pick=e.target.closest("[data-status-pick]");
-    if(pick){e.stopPropagation();row.dataset.status=pick.dataset.statusPick;row.querySelector(".status-pill").textContent=pick.dataset.statusPick;row.querySelector(".status-picker").classList.add("hidden");onChange?.();return}
+    if(pick){e.stopPropagation();row.dataset.status=pick.dataset.statusPick;row.querySelector(".status-pill").textContent=pick.dataset.statusLabel||pick.dataset.statusPick;row.querySelector(".status-picker").classList.add("hidden");onChange?.();return}
     row.querySelector(".status-picker").classList.toggle("hidden");
   };
 }
