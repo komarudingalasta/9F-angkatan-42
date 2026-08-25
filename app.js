@@ -148,7 +148,12 @@ function friendlyAuthError(e){
 async function fetchCollection(label, queryRef){
   try{
     const snap=await queryRef.get();
-    return snap.docs.map(d=>({id:d.id,...d.data()}));
+    return snap.docs.map(d=>{
+      const data=d.data();
+      return label==="users"
+        ? {id:d.id,...data,uid:d.id}
+        : {id:d.id,...data};
+    });
   }catch(e){
     console.error("Firestore access failed:",label,e);
     const err=new Error(`Akses Firestore ditolak pada ${label}: ${e.message}`);
@@ -401,18 +406,20 @@ async function syncRoster(){
 function renderSettings(){
   $("rosterStatus").textContent=`${classRoster.length} siswa tersinkron`;
   const students=studentProfiles().sort((a,b)=>(a.name||"").localeCompare(b.name||""));
-  $("helperList").innerHTML=students.map(u=>`<div class="helper-row"><div><b>${esc(u.name||u.nis)}</b><small>NIS ${esc(u.nis)} · ${esc(u.kelas||"-")}</small></div><label><input type="checkbox" data-helper-uid="${u.uid}" ${u.attendanceHelper===true?"checked":""}></label></div>`).join("")||'<div class="muted">Belum ada akun siswa.</div>';
+  $("helperList").innerHTML=students.map(u=>`<div class="helper-row"><div><b>${esc(u.name||u.nis)}</b><small>NIS ${esc(u.nis)} · ${esc(u.kelas||"-")}</small></div><label><input type="checkbox" data-helper-uid="${u.uid||u.id}" ${u.attendanceHelper===true?"checked":""}></label></div>`).join("")||'<div class="muted">Belum ada akun siswa.</div>';
 }
 $("syncRosterBtn").addEventListener("click",async()=>{
   msg("helperMessage","Menyinkronkan…");try{const n=await syncRoster();await loadRoleData();renderSettings();msg("helperMessage",`${n} siswa berhasil disinkronkan.`,"success")}catch(e){msg("helperMessage","Sinkronisasi gagal: "+e.message,"error")}
 });
 $("helperList").addEventListener("change",async e=>{
-  const input=e.target.closest("[data-helper-uid]");if(!input)return;const u=users.find(x=>x.uid===input.dataset.helperUid);if(!u)return;
+  const input=e.target.closest("[data-helper-uid]");if(!input)return;const u=users.find(x=>(x.uid||x.id)===input.dataset.helperUid);if(!u)return;
   input.disabled=true;try{
     const cls=String(u.kelas||latestRecord(records.filter(r=>String(r.nis)===String(u.nis)))?.kelas||"").trim();
     if(input.checked&&!cls)throw new Error("Kelas siswa belum tersedia.");
-    await db.collection("users").doc(u.uid).update({attendanceHelper:input.checked,attendanceHelperClass:input.checked?cls:"",updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
-    await loadRoleData();renderSettings();msg("helperMessage",input.checked?`${u.name} menjadi Petugas Kehadiran kelas ${cls}.`:`Akses petugas ${u.name} dicabut.`,"success");
+    const userDocId=u.uid||u.id;
+    if(!userDocId)throw new Error("UID siswa tidak ditemukan.");
+    await db.collection("users").doc(userDocId).update({attendanceHelper:input.checked,attendanceHelperClass:input.checked?cls:"",updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    await loadRoleData();renderSettings();msg("helperMessage",input.checked?`${u.name||u.nis} menjadi Petugas Kehadiran kelas ${cls}.`:`Akses petugas ${u.name||u.nis} dicabut.`,"success");
   }catch(err){input.checked=!input.checked;msg("helperMessage","Gagal mengubah petugas: "+err.message,"error")}finally{input.disabled=false}
 });
 
@@ -458,13 +465,15 @@ async function loadHelperRoster(){
   if(profile?.attendanceHelper!==true)throw new Error("Akses petugas tidak aktif.");
   const cls=String(profile.attendanceHelperClass||profile.kelas||"").trim();if(!cls)throw new Error("Kelas petugas belum ditetapkan.");
   const [r,a]=await Promise.all([
-    db.collection("classRoster").get(),
+    db.collection("classRoster")
+      .where("kelas","==",cls)
+      .get(),
     db.collection("attendance")
       .where("date","==",today())
       .where("kelas","==",cls)
       .get()
   ]);
-  classRoster=r.docs.map(d=>({id:d.id,...d.data()})).filter(x=>String(x.kelas)===cls);
+  classRoster=r.docs.map(d=>({id:d.id,...d.data()}));
   attendance=a.docs.map(d=>({id:d.id,...d.data()}));
   return cls;
 }

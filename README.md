@@ -41,3 +41,12 @@ Dashboard command center, status absensi harian, panel Perlu Perhatian, kalender
 - Query diselaraskan dengan Firestore Rules.
 - Pesan error untuk permission/index dibuat lebih spesifik.
 - Firestore Rules tidak berubah dari V21.1.
+
+
+## V21.3 Helper Identity Fix
+- Fixed critical user UID mapping bug that could assign helper access to the wrong student (e.g. first/undefined UID user).
+- Users loaded from Firestore now always carry uid=documentId.
+- Helper checkbox uses uid||id defensively.
+- classRoster helper query is restricted to the assigned class.
+- classRoster Rules are restricted to helperClass and therefore changed.
+- Firestore Rules MUST be republished.

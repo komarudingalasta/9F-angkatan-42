@@ -68,7 +68,8 @@ service cloud.firestore {
     // Daftar siswa untuk admin dan siswa petugas.
     // Data ini hanya berisi NIS, nama, kelas.
     match /classRoster/{id} {
-      allow get, list: if isAdmin() || isHelper();
+      allow get, list: if isAdmin()
+        || (isHelper() && resource.data.kelas == helperClass());
       allow create, update, delete: if isAdmin();
     }
 
