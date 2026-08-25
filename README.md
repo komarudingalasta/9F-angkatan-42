@@ -457,3 +457,14 @@ Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya 
 - Hamburger/sidebar navigation is disabled on mobile to avoid conflicting navigation systems.
 - Added a final responsive CSS override to neutralize conflicting legacy media rules.
 - Firestore Rules unchanged from V18.6.6.
+
+
+## V18.7.1 — Full Student Runtime Cleanup
+- Fixed student error `Cannot read properties of null (reading 'value')`.
+- Removed legacy JavaScript renderers that referenced student pages already removed from HTML.
+- Student data loading now renders only the consolidated Academic page.
+- Fixed stale `v15Name` reference to the current greeting element.
+- Student UI render errors no longer block successful data loading.
+- Audited JS DOM references: no unexpected missing elements remain.
+- Verified Academic, Attendance, Attendance Helper, Leave Request, and Admin Attendance page structures are still present.
+- Firestore Rules unchanged from V18.6.6.
