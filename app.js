@@ -20,7 +20,15 @@ function doc(a,b,c){
   throw new Error("Referensi dokumen tidak valid.");
 }
 function getDocs(ref){ return ref.get(); }
-function getDoc(ref){ return ref.get(); }
+async function getDoc(ref){
+  const snap=await ref.get();
+  return {
+    id:snap.id,
+    ref:snap.ref,
+    exists:function(){ return snap.exists; },
+    data:function(){ return snap.data(); }
+  };
+}
 function setDoc(ref,data,options){ return ref.set(data,options||{}); }
 function deleteDoc(ref){ return ref.delete(); }
 function updateDoc(ref,data){ return ref.update(data); }
@@ -66,6 +74,7 @@ if(!configReady()){
       onAuthStateChanged(auth, async user=>{
       if(user){
         try{
+          setMessage("loginMessage","Login berhasil. Membaca profil...");
           const profileSnap=await getDoc(doc(db,"users",user.uid));
           currentProfile=profileSnap.exists()?profileSnap.data():null;
           if(!currentProfile){
@@ -88,7 +97,7 @@ if(!configReady()){
           $("app")?.classList.add("hidden");
           $("setupScreen")?.classList.add("hidden");
           $("loginScreen")?.classList.remove("hidden");
-          setMessage("loginMessage","Gagal membaca profil akses. Silakan login kembali.",true);
+          setMessage("loginMessage","Gagal membaca profil akses: "+(e?.message||e),true);
         }
       }else{
         currentProfile=null;

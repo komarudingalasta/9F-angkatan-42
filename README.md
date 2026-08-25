@@ -420,3 +420,11 @@ Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya 
 - Firebase uses classic Compat scripts 10.12.2.
 - app.js now loads as a normal script.
 - Firestore Rules unchanged from V18.6.
+
+
+## V18.6.5 — Post-Login Profile Fix
+- Fixed Firebase Compat DocumentSnapshot mismatch after successful login.
+- getDoc() now exposes modular-compatible exists() and data() methods.
+- Added visible login stages: reading profile and loading page.
+- Profile read errors now display their actual error message.
+- Firestore Rules unchanged from V18.6.
