@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn(){ return request.auth != null; }
+    function myProfile(){ return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function isAdmin(){ return signedIn() && myProfile().data.role == "admin"; }
+    function isStudent(){ return signedIn() && myProfile().data.role == "student"; }
+    function myNis(){ return myProfile().data.nis; }
+    function helperClass(){ return myProfile().data.attendanceHelperClass; }
+    function isHelper(){ return isStudent() && myProfile().data.attendanceHelper == true; }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /records/{id} {
+      allow read: if isAdmin() || (isStudent() && resource.data.nis == myNis());
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /studentSummaries/{id} {
+      allow read: if isAdmin() || (isStudent() && resource.data.nis == myNis());
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /subjects/{id} {
+      allow read: if signedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /classRoster/{id} {
+      allow read: if isAdmin() || isHelper();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /attendance/{id} {
+      allow read: if isAdmin()
+        || (isStudent() && resource.data.nis == myNis())
+        || (isHelper() && resource.data.kelas == helperClass());
+
+      allow create: if isAdmin()
+        || (isHelper()
+          && request.resource.data.kelas == helperClass()
+          && request.resource.data.source == "Petugas Siswa");
+
+      allow update: if isAdmin()
+        || (isHelper()
+          && resource.data.kelas == helperClass()
+          && request.resource.data.kelas == helperClass()
+          && resource.data.source != "Pengajuan"
+          && request.resource.data.source == "Petugas Siswa");
+
+      allow delete: if isAdmin();
+    }
+
+    match /leaveRequests/{id} {
+      allow read: if isAdmin() || (isStudent() && resource.data.nis == myNis());
+      allow create: if isStudent()
+        && request.resource.data.nis == myNis()
+        && request.resource.data.status == "Menunggu"
+        && (request.resource.data.type == "Sakit" || request.resource.data.type == "Izin");
+      allow update, delete: if isAdmin();
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}
