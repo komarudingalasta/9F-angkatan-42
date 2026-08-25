@@ -411,3 +411,12 @@ Tidak ada nama atau nilai siswa lain yang ditampilkan. Perbandingan kelas hanya 
 - Boot status shows whether the application login module is ready.
 - Authentication errors are displayed more specifically.
 - Firestore Rules unchanged from V18.6.
+
+
+## V18.6.4 — Syntax Fixed + Classic Firebase
+- Fixed exact syntax error: missing separator before `const sorted`.
+- app.js and firebase-config.js both pass JavaScript parser validation.
+- Removed ES module imports.
+- Firebase uses classic Compat scripts 10.12.2.
+- app.js now loads as a normal script.
+- Firestore Rules unchanged from V18.6.

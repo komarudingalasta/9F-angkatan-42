@@ -1,29 +1,61 @@
-import { firebaseConfig } from "./firebase-config.js";
-import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut,
-  sendPasswordResetEmail, setPersistence, browserLocalPersistence,
-  createUserWithEmailAndPassword
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, writeBatch, serverTimestamp, query, where, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+/* Firebase Compat bridge V18.6.4 */
+function initializeApp(config){
+  if(!window.firebase) throw new Error("Firebase library belum dimuat.");
+  return firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
+}
+function getApps(){ return window.firebase ? firebase.apps : []; }
+function getAuth(app){ return app.auth(); }
+function onAuthStateChanged(auth,cb){ return auth.onAuthStateChanged(cb); }
+function signInWithEmailAndPassword(auth,email,password){ return auth.signInWithEmailAndPassword(email,password); }
+function signOut(auth){ return auth.signOut(); }
+function sendPasswordResetEmail(auth,email){ return auth.sendPasswordResetEmail(email); }
+var browserLocalPersistence = window.firebase ? firebase.auth.Auth.Persistence.LOCAL : "local";
+function setPersistence(auth,persistence){ return auth.setPersistence(persistence); }
+function createUserWithEmailAndPassword(auth,email,password){ return auth.createUserWithEmailAndPassword(email,password); }
+function getFirestore(app){ return app.firestore(); }
+function collection(db,name){ return db.collection(name); }
+function doc(a,b,c){
+  if(arguments.length===3) return a.collection(b).doc(c);
+  if(arguments.length===2 && a && typeof a.doc==="function") return a.doc(b);
+  throw new Error("Referensi dokumen tidak valid.");
+}
+function getDocs(ref){ return ref.get(); }
+function getDoc(ref){ return ref.get(); }
+function setDoc(ref,data,options){ return ref.set(data,options||{}); }
+function deleteDoc(ref){ return ref.delete(); }
+function updateDoc(ref,data){ return ref.update(data); }
+function addDoc(ref,data){ return ref.add(data); }
+function writeBatch(db){ return db.batch(); }
+function serverTimestamp(){ return firebase.firestore.FieldValue.serverTimestamp(); }
+function where(field,op,value){ return {type:"where",field:field,op:op,value:value}; }
+function query(ref){
+  var q=ref;
+  for(var i=1;i<arguments.length;i++){
+    var c=arguments[i];
+    if(c && c.type==="where") q=q.where(c.field,c.op,c.value);
+  }
+  return q;
+}
 
 const $=id=>document.getElementById(id);
 document.body.classList.add("auth-locked");
-window.__PAKKOM_BOOT_OK__ = true;
+window.__PAKKOM_BOOT_OK__ = !!(window.firebase && window.firebaseConfig);
 if($("bootStatus")){
-  $("bootStatus").textContent="Sistem login siap.";
+  $("bootStatus").textContent=window.__PAKKOM_BOOT_OK__?"Sistem login siap.":"Library Firebase belum siap.";
   $("bootStatus").classList.add("ready");
 }
 const CORE=["nis","nama","kelas","semester"];
 let app,auth,db,records=[],subjects=[],pendingFileRows=[],pendingHeaders=[],selectedStudent=null,charts={},currentProfile=null,currentLoginRole=null,studentSummaries=[];
 
 function configReady(){
-  return firebaseConfig && firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("PASTE_") &&
-    firebaseConfig.projectId && !firebaseConfig.projectId.includes("PASTE_");
+  return !!(window.firebase && window.firebaseConfig &&
+    firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("PASTE_") &&
+    firebaseConfig.projectId && !firebaseConfig.projectId.includes("PASTE_"));
 }
 if(!configReady()){
-  $("loginScreen")?.classList.add("hidden");
-  $("setupScreen")?.classList.remove("hidden");
+  $("setupScreen")?.classList.add("hidden");
+  $("loginScreen")?.classList.remove("hidden");
+  setMessage("loginMessage","Library Firebase belum berhasil dimuat. Muat ulang halaman atau coba jaringan lain.",true);
 }else{
   $("setupScreen")?.classList.add("hidden");
   $("loginScreen")?.classList.remove("hidden");
@@ -498,7 +530,8 @@ function renderSubjectChart(){
 }
 function renderSettings(){
   ensureSubjectObjects();
-      syncClassRosterFromRecords().catch(e=>console.warn("Roster sync",e))const sorted=[...subjects].sort((a,b)=>(a.order??999)-(b.order??999));
+      syncClassRosterFromRecords().catch(e=>console.warn("Roster sync",e));
+      const sorted=[...subjects].sort((a,b)=>(a.order??999)-(b.order??999));
   $("subjectSettingsTable").querySelector("tbody").innerHTML=sorted.map(s=>`<tr data-id="${escapeAttr(s.id||s.key)}"><td><input class="settings-input order-input" type="number" value="${Number(s.order??999)}"></td><td>${escapeHtml(s.key)}</td><td><input class="settings-input name-input" value="${escapeAttr(s.name||titleCase(s.key))}"></td><td><input class="settings-input short-input" value="${escapeAttr(s.short||s.name||titleCase(s.key))}"></td><td><select class="settings-input active-input"><option value="true" ${s.active!==false?"selected":""}>Aktif</option><option value="false" ${s.active===false?"selected":""}>Nonaktif</option></select></td><td><button class="btn secondary save-subject">Simpan</button></td></tr>`).join("");
   $("subjectSettingsTable").querySelectorAll(".save-subject").forEach(btn=>btn.onclick=async()=>{
     const tr=btn.closest("tr"),id=tr.dataset.id,key=subjects.find(x=>(x.id||x.key)===id)?.key||id;
