@@ -207,22 +207,77 @@ function renderAdminDashboard(){
   renderAttentionList(); renderTodayAttendanceSummary(todayRows); renderAdminTrend();
 }
 
+let attentionIssues=[];
+let showAllAttention=false;
+
+function dateDaysAgo(days){
+  const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-days);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
 function renderAttentionList(){
-  const roster=activeRoster(),month=today().slice(0,7),byNis=new Map();
-  records.forEach(r=>{const n=String(r.nis);if(!byNis.has(n))byNis.set(n,[]);byNis.get(n).push(r)});
+  const roster=activeRoster(),from=dateDaysAgo(29),to=today(),byNis=new Map();
+  records.forEach(r=>{
+    const n=String(r.nis);
+    if(!byNis.has(n))byNis.set(n,[]);
+    byNis.get(n).push(r);
+  });
+
   const issues=[];
   roster.forEach(s=>{
-    const nis=String(s.nis),att=finalAttendanceRows().filter(x=>String(x.nis)===nis&&x.date?.startsWith(month));
-    const stat=attendanceStats(att),alpa=stat.alpa,total=stat.total,rate=stat.total?stat.percentage:100;
-    const rs=(byNis.get(nis)||[]).sort((a,b)=>semesterRank(a.semester)-semesterRank(b.semester)),last=rs.at(-1),prev=rs.at(-2),la=rowAvg(last),pa=rowAvg(prev),reasons=[];
-    if(alpa>=3)reasons.push(`Alpa ${alpa}× bulan ini`);
-    if(total>=5&&rate<90)reasons.push(`Kehadiran ${Math.round(rate)}%`);
-    if(Number.isFinite(la)&&Number.isFinite(pa)&&la<=pa-5)reasons.push(`Nilai turun ${fmt(pa-la)} poin`);
-    if(reasons.length)issues.push({name:s.name||s.nama||nis,nis,reasons});
+    const nis=String(s.nis);
+    const att30=finalAttendanceRows().filter(x=>String(x.nis)===nis&&x.date>=from&&x.date<=to);
+    const stat=attendanceStats(att30);
+    const rs=(byNis.get(nis)||[]).sort((a,b)=>semesterRank(a.semester)-semesterRank(b.semester));
+    const last=rs.at(-1),prev=rs.at(-2),latestAvg=rowAvg(last),prevAvg=rowAvg(prev);
+    const reasons=[];
+
+    if(stat.alpa>=3)reasons.push({kind:"attendance",text:`Alpa ${stat.alpa}× dalam 30 hari`,weight:stat.alpa>=5?2:1});
+    if(stat.total>=5&&stat.percentage<90)reasons.push({kind:"attendance",text:`Kehadiran 30 hari ${stat.percentage}%`,weight:1});
+    if(stat.sakit+stat.izin>=5)reasons.push({kind:"attendance",text:`Izin/Sakit ${stat.sakit+stat.izin}× dalam 30 hari`,weight:1});
+    if(Number.isFinite(latestAvg)&&latestAvg<70)reasons.push({kind:"academic",text:`Rata-rata terbaru ${fmt(latestAvg)}`,weight:1});
+    if(Number.isFinite(latestAvg)&&Number.isFinite(prevAvg)&&latestAvg<=prevAvg-5)reasons.push({kind:"academic",text:`Rata-rata turun ${fmt(prevAvg-latestAvg)} poin`,weight:1});
+
+    if(last&&prev){
+      const drops=Object.keys(last.scores||{}).filter(k=>Number.isFinite(Number(last.scores[k]))&&Number.isFinite(Number(prev.scores?.[k]))&&Number(prev.scores[k])-Number(last.scores[k])>=10);
+      if(drops.length)reasons.push({kind:"academic",text:`${drops.length} mapel turun ≥10 poin`,weight:1});
+    }
+
+    if(reasons.length){
+      const high=stat.alpa>=5||reasons.length>=2;
+      const priority=high?"Prioritas Tinggi":"Perlu Perhatian";
+      issues.push({
+        nis,name:s.name||s.nama||nis,priority,level:high?2:1,reasons,
+        stat,latestAvg,prevAvg
+      });
+    }
   });
-  $("attentionCount").textContent=issues.length;
-  $("attentionList").innerHTML=issues.slice(0,6).map(x=>`<div class="attention-row"><div><b>${esc(x.name)}</b><small>NIS ${esc(x.nis)}</small></div><span>${esc(x.reasons.join(" · "))}</span></div>`).join("")||'<div class="empty-state">✓ Tidak ada indikator perhatian utama saat ini.</div>';
+
+  attentionIssues=issues.sort((a,b)=>b.level-a.level||b.reasons.length-a.reasons.length||a.name.localeCompare(b.name));
+  $("attentionCount").textContent=attentionIssues.length;
+  const visible=showAllAttention?attentionIssues:attentionIssues.slice(0,6);
+  $("attentionList").innerHTML=visible.map(x=>`<button class="attention-row attention-click" type="button" data-attention-nis="${esc(x.nis)}"><div><b>${esc(x.name)}</b><small>NIS ${esc(x.nis)} · <span class="priority-text ${x.level===2?"high":"watch"}">${x.priority}</span></small></div><span>${esc(x.reasons.map(r=>r.text).join(" · "))}</span></button>`).join("")||'<div class="empty-state">✓ Tidak ada indikator perhatian utama saat ini.</div>';
+  $("showAllAttentionBtn").classList.toggle("hidden",attentionIssues.length<=6);
+  $("showAllAttentionBtn").textContent=showAllAttention?"Tampilkan ringkas":"Lihat semua siswa";
 }
+
+$("showAllAttentionBtn").addEventListener("click",()=>{showAllAttention=!showAllAttention;renderAttentionList()});
+$("attentionList").addEventListener("click",e=>{
+  const row=e.target.closest("[data-attention-nis]");if(!row)return;
+  const x=attentionIssues.find(v=>v.nis===row.dataset.attentionNis);if(!x)return;
+  $("attentionDetailTitle").textContent=x.name;
+  $("attentionPriorityBadge").innerHTML=`<span class="priority-badge ${x.level===2?"high":"watch"}">${x.priority}</span>`;
+  $("attentionDetailMetrics").innerHTML=`
+    <div><small>Kehadiran 30 hari</small><strong>${x.stat.percentage}%</strong></div>
+    <div><small>Hadir</small><strong>${x.stat.hadir}</strong></div>
+    <div><small>Sakit</small><strong>${x.stat.sakit}</strong></div>
+    <div><small>Izin</small><strong>${x.stat.izin}</strong></div>
+    <div><small>Alpa</small><strong>${x.stat.alpa}</strong></div>
+    <div><small>Rata-rata terbaru</small><strong>${Number.isFinite(x.latestAvg)?fmt(x.latestAvg):"—"}</strong></div>`;
+  $("attentionReasons").innerHTML=x.reasons.map(r=>`<div class="reason-item">⚠ ${esc(r.text)}</div>`).join("");
+  $("attentionDetailModal").classList.remove("hidden");
+});
+$("closeAttentionDetailBtn").addEventListener("click",()=>$("attentionDetailModal").classList.add("hidden"));
 function renderTodayAttendanceSummary(rows){
   const s=attendanceStats(rows);
   $("todayAttendanceTitle").textContent=s.total?"Kehadiran sudah tercatat":"Kehadiran belum diisi";

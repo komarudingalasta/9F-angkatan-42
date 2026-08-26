@@ -138,3 +138,12 @@ Dashboard command center, status absensi harian, panel Perlu Perhatian, kalender
 - Riwayat kehadiran dan pengajuan tampil secara keseluruhan.
 - Mengganti bulan hanya memperbarui kalender, tidak mengubah ringkasan.
 - Firestore Rules tidak berubah.
+
+
+## V22.4 — Early Warning Siswa
+- Kehadiran dianalisis berdasarkan 30 hari terakhir, bukan reset awal bulan.
+- Indikator: Alpa ≥3, kehadiran <90% (min. 5 hari tercatat), Izin+Sakit ≥5, rata-rata terbaru <70, rata-rata turun ≥5, mapel turun ≥10.
+- Prioritas Tinggi bila ≥2 indikator atau Alpa ≥5.
+- Dashboard dapat menampilkan seluruh siswa, tidak lagi berhenti pada 6 siswa.
+- Klik siswa membuka alasan dan ringkasan akademik/kehadiran.
+- Firestore Rules tidak berubah.
