@@ -701,7 +701,16 @@ $("saveHelperAttendanceBtn").addEventListener("click",async()=>{
 });
 
 /* LEAVE REQUEST + DRIVE */
-$("openLeaveBtn").addEventListener("click",()=>{$("leaveStart").value=today();$("leaveEnd").value=today();$("leaveModal").classList.remove("hidden")});
+$("openLeaveBtn").addEventListener("click",()=>{
+  preparedPhoto=null;
+  $("leavePhoto").value="";
+  $("leavePhotoPreview").innerHTML="";
+  $("leavePhotoPreview").classList.add("hidden");
+  $("leaveStart").value=today();
+  $("leaveEnd").value=today();
+  msg("leaveMessage","");
+  $("leaveModal").classList.remove("hidden");
+});
 $("closeLeaveModalBtn").addEventListener("click",()=>$("leaveModal").classList.add("hidden"));
 $("leavePhoto").addEventListener("change",async()=>{
   preparedPhoto=null;const f=$("leavePhoto").files[0];if(!f)return;
@@ -717,10 +726,13 @@ async function uploadEvidence(photo,meta){
   const r=await fetch(APPS_SCRIPT_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({...meta,mimeType:photo.mimeType,fileBase64:photo.base64})});const t=await r.text();let data;try{data=JSON.parse(t)}catch(_){throw new Error("Respons upload foto tidak dapat dibaca.")}if(!data.success)throw new Error(data.message||"Upload foto gagal.");return data;
 }
 $("submitLeaveBtn").addEventListener("click",async()=>{
-  const type=$("leaveType").value,startDate=$("leaveStart").value,endDate=$("leaveEnd").value||startDate,note=$("leaveNote").value.trim();if(!startDate)return msg("leaveMessage","Tanggal wajib diisi.","error");
-  $("submitLeaveBtn").disabled=true;msg("leaveMessage","Mengirim pengajuan…");
+  const type=$("leaveType").value,startDate=$("leaveStart").value,endDate=$("leaveEnd").value||startDate,note=$("leaveNote").value.trim();
+  if(!startDate)return msg("leaveMessage","Tanggal wajib diisi.","error");
+  if(!preparedPhoto)return msg("leaveMessage","Foto bukti wajib dilampirkan untuk pengajuan Izin/Sakit.","error");
+  $("submitLeaveBtn").disabled=true;msg("leaveMessage","Mengunggah foto bukti…");
   try{
-    let attachment=null;if(preparedPhoto)attachment=await uploadEvidence(preparedPhoto,{nis:String(profile.nis),nama:profile.name||"",tanggal:startDate,jenis:type});
+    const attachment=await uploadEvidence(preparedPhoto,{nis:String(profile.nis),nama:profile.name||"",tanggal:startDate,jenis:type});
+    if(!attachment?.fileUrl && !attachment?.fileId)throw new Error("Foto bukti belum berhasil tersimpan.");
     await db.collection("leaveRequests").add({nis:String(profile.nis),name:profile.name||"",kelas:profile.kelas||"",type,startDate,endDate,note,status:"Menunggu",attachmentUrl:attachment?.fileUrl||"",attachmentName:attachment?.fileName||"",driveFileId:attachment?.fileId||"",createdAt:new Date().toISOString()});
     $("leaveModal").classList.add("hidden");preparedPhoto=null;$("leavePhoto").value="";$("leavePhotoPreview").classList.add("hidden");await loadRoleData();renderStudentAttendance();msg("leaveMessage","");
   }catch(e){msg("leaveMessage","Pengajuan gagal: "+e.message,"error")}finally{$("submitLeaveBtn").disabled=false}

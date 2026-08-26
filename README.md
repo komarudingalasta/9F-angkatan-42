@@ -86,3 +86,11 @@ Dashboard command center, status absensi harian, panel Perlu Perhatian, kalender
 - Hapus hanya menghapus nilai semester terkait, bukan akun siswa.
 - Ringkasan, posisi akademik, grafik, dan dashboard dihitung ulang setelah perubahan.
 - Siswa tetap read-only; Firestore Rules tidak berubah dari V21.6.
+
+
+## V21.8 — Foto Bukti Wajib
+- Pengajuan Izin dan Sakit wajib melampirkan foto bukti.
+- Submit ditolak bila foto belum dipilih.
+- Pengajuan baru disimpan setelah upload foto berhasil.
+- Preview/foto lama direset setiap membuka form pengajuan.
+- Firestore Rules tidak berubah dari V21.7.

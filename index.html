@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#1559b7">
   <title>PakKom Student Analytics</title>
-  <link rel="stylesheet" href="style.css?v=21.7">
+  <link rel="stylesheet" href="style.css?v=21.8">
 </head>
 <body>
 <div id="bootScreen" class="startup-screen">
@@ -267,7 +267,7 @@
     <label>Jenis<select id="leaveType"><option>Sakit</option><option>Izin</option></select></label>
     <div class="two-col"><label>Tanggal mulai<input id="leaveStart" type="date"></label><label>Tanggal selesai<input id="leaveEnd" type="date"></label></div>
     <label>Keterangan<textarea id="leaveNote" rows="3"></textarea></label>
-    <label>Foto bukti <span class="muted">(opsional)</span><input id="leavePhoto" type="file" accept="image/*"></label>
+    <label>Foto bukti <span class="required-mark">*wajib</span><input id="leavePhoto" type="file" accept="image/*" required></label>
     <div id="leavePhotoPreview" class="photo-preview hidden"></div>
     <button id="submitLeaveBtn" class="btn primary wide" type="button">Kirim Pengajuan</button>
     <div id="leaveMessage" class="message"></div>
@@ -276,10 +276,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="firebase-config.js?v=21.7"></script>
+<script src="firebase-config.js?v=21.8"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="app.js?v=21.7"></script>
+<script src="app.js?v=21.8"></script>
 </body>
 </html>
