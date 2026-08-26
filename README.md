@@ -94,3 +94,11 @@ Dashboard command center, status absensi harian, panel Perlu Perhatian, kalender
 - Pengajuan baru disimpan setelah upload foto berhasil.
 - Preview/foto lama direset setiap membuka form pengajuan.
 - Firestore Rules tidak berubah dari V21.7.
+
+
+## V21.9 — Rekap Kehadiran Sinkron Langsung
+- Setelah admin menyimpan/perbaiki kehadiran, data attendance dimuat ulang dari Firestore sebelum rekap dirender.
+- Rekap, daftar harian, pengajuan, dan dashboard diperbarui dalam satu fungsi refresh terpusat.
+- Persetujuan/penolakan izin-sakit juga langsung memicu refresh data terbaru.
+- Import kehadiran menggunakan refresh yang sama.
+- Firestore Rules tidak berubah.

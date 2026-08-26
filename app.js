@@ -409,6 +409,16 @@ function updateAttendanceCounts(){
   const vals=[...$("attendanceList").querySelectorAll(".att-row")].map(r=>r.dataset.status);
   $("countH").textContent=vals.filter(x=>x==="Hadir").length;$("countS").textContent=vals.filter(x=>x==="Sakit").length;$("countI").textContent=vals.filter(x=>x==="Izin").length;$("countA").textContent=vals.filter(x=>x==="Alpa").length;
 }
+async function refreshAttendanceViews(messageId="",successText=""){
+  // Always reload Firestore first; recap must never render from stale in-memory attendance.
+  await loadRoleData();
+  renderAttendanceToday();
+  renderLeaveRequestsAdmin();
+  renderRecap();
+  renderAdminDashboard();
+  if(messageId && successText)msg(messageId,successText,"success");
+}
+
 function renderAdminAttendance(){
   if(!$("attendanceDate").value)$("attendanceDate").value=today();
   if(!$("recapMonth").value)$("recapMonth").value=today().slice(0,7);
@@ -426,7 +436,9 @@ $("saveAttendanceBtn").addEventListener("click",async()=>{
   try{
     let batch=db.batch(),count=0;
     rows.forEach(row=>{const nis=row.dataset.nis,s=roster.find(x=>String(x.nis)===nis),old=recordForAttendance(nis,d);batch.set(db.collection("attendance").doc(attendanceId(nis,d)),{nis,name:s?.name||"",kelas:s?.kelas||"",date:d,status:row.dataset.status||"Hadir",note:old?.note||"",source:old?.source==="Pengajuan"?"Pengajuan":"Manual",updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});count++});
-    await batch.commit();await loadRoleData();renderAttendanceToday();renderRecap();renderAdminDashboard();msg("attendanceSaveMessage",`${count} siswa disimpan.`,"success");
+    await batch.commit();
+    await refreshAttendanceViews("attendanceSaveMessage",`${count} siswa disimpan. Rekap sudah diperbarui.`);
+
   }catch(e){msg("attendanceSaveMessage","Gagal menyimpan: "+e.message,"error")}
 });
 function renderLeaveRequestsAdmin(){
@@ -439,7 +451,7 @@ $("leaveRequestList").addEventListener("click",async e=>{
   const id=(approve||reject).dataset.approve||(approve||reject).dataset.reject;const req=leaveRequests.find(x=>x.id===id);if(!req)return;
   try{
     if(approve){await approveLeave(req)}else await db.collection("leaveRequests").doc(id).update({status:"Ditolak",updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
-    await loadRoleData();renderLeaveRequestsAdmin();renderRecap();renderAdminDashboard();
+    await refreshAttendanceViews();
   }catch(err){alert("Gagal memproses pengajuan: "+err.message)}
 });
 function dateRange(start,end){const arr=[],a=new Date(start+"T00:00:00"),b=new Date((end||start)+"T00:00:00");for(let d=new Date(a);d<=b;d.setDate(d.getDate()+1))arr.push(d.toISOString().slice(0,10));return arr}
