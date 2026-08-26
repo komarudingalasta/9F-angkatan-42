@@ -85,3 +85,6 @@ label{display:block;font-size:12px;font-weight:800;margin:14px 0 6px}input,selec
 /* V22.1 Attendance Consistency */
 #studentAttendancePeriodLabel{font-size:12px;color:var(--muted);font-weight:700}
 .cal-day .no-record{color:#a6afbd;font-style:italic}
+
+.helper-access-status{display:block;margin-top:6px;font-weight:800;color:#19714a}.helper-access-status.helper-off{color:#b13b46}
+#openHelperBtn:disabled{opacity:.5;cursor:not-allowed}

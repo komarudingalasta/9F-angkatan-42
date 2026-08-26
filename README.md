@@ -120,3 +120,12 @@ Dashboard command center, status absensi harian, panel Perlu Perhatian, kalender
 - Hari tanpa record tidak dihitung sebagai Hadir/Alpa dan ditampilkan sebagai Belum tercatat.
 - Persentase = Hadir / Hari Tercatat × 100.
 - Firestore Rules tidak berubah.
+
+
+## V22.2 — Canonical Attendance + Helper Schedule
+- Koreksi admin menghapus record legacy/duplikat NIS+tanggal dan menulis satu dokumen canonical.
+- Koreksi admin selalu menjadi source Manual dan langsung menyelaraskan input, rekap, dashboard, dan data siswa.
+- Petugas siswa hanya dapat membuka/mengisi kehadiran untuk tanggal hari ini.
+- Akses petugas otomatis off Sabtu, Minggu, dan daftar hari libur nasional Indonesia 2026.
+- Admin tetap dapat memperbaiki tanggal lampau.
+- Firestore Rules tidak berubah; pembatasan kalender petugas dilakukan di aplikasi.

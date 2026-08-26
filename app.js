@@ -26,6 +26,14 @@ function subjectLabel(k){return k.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpper
 function normalizeStatus(v){const x=String(v??"").trim().toUpperCase();return ({H:"Hadir",HADIR:"Hadir",S:"Sakit",SAKIT:"Sakit",I:"Izin",IZIN:"Izin",A:"Alpa",ALPA:"Alpa"})[x]||null}
 function attendanceId(nis,date){return `${slug(nis)}_${date}`.slice(0,220)}
 
+function duplicateAttendanceDocs(nis,date,canonicalId){
+  return attendance.filter(x=>
+    String(x.nis)===String(nis) &&
+    x.date===date &&
+    x.id!==canonicalId
+  );
+}
+
 function setBoot(text,ok=false){const el=$("bootStatus");if(el){el.textContent=text;el.style.color=ok?"#16803c":"#7b8798"}}
 function hideBoot(){ $("bootScreen")?.classList.add("hidden"); }
 function showLogin(){ $("app")?.classList.add("hidden"); $("loginScreen")?.classList.remove("hidden"); hideBoot(); }
@@ -454,15 +462,39 @@ function renderAttendanceToday(){
   $("attendanceList").innerHTML=list.map(s=>attendanceRowHtml(s,d,false)).join("")||'<div class="muted">Belum ada daftar siswa.</div>';updateAttendanceCounts();
 }
 $("saveAttendanceBtn").addEventListener("click",async()=>{
-  const d=$("attendanceDate").value||today(),rows=[...$("attendanceList").querySelectorAll(".att-row")],roster=activeRoster();
-  msg("attendanceSaveMessage","Menyimpan…");
+  const d=$("attendanceDate").value||today();
+  const rows=[...$("attendanceList").querySelectorAll(".att-row")];
+  const roster=activeRoster();
+  msg("attendanceSaveMessage","Menyimpan koreksi dan menyelaraskan rekap…");
   try{
     let batch=db.batch(),count=0;
-    rows.forEach(row=>{const nis=row.dataset.nis,s=roster.find(x=>String(x.nis)===nis),old=recordForAttendance(nis,d);batch.set(db.collection("attendance").doc(attendanceId(nis,d)),{nis,name:s?.name||"",kelas:s?.kelas||"",date:d,status:row.dataset.status||"Hadir",note:old?.note||"",source:old?.source==="Pengajuan"?"Pengajuan":"Manual",updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});count++});
-    await batch.commit();
-    await refreshAttendanceViews("attendanceSaveMessage",`${count} siswa disimpan. Rekap sudah diperbarui.`);
+    rows.forEach(row=>{
+      const nis=row.dataset.nis;
+      const s=roster.find(x=>String(x.nis)===nis);
+      const canonicalId=attendanceId(nis,d);
+      const old=recordForAttendance(nis,d);
 
-  }catch(e){msg("attendanceSaveMessage","Gagal menyimpan: "+e.message,"error")}
+      duplicateAttendanceDocs(nis,d,canonicalId)
+        .forEach(x=>batch.delete(db.collection("attendance").doc(x.id)));
+
+      batch.set(db.collection("attendance").doc(canonicalId),{
+        nis,
+        name:s?.name||"",
+        kelas:s?.kelas||"",
+        date:d,
+        status:row.dataset.status||"Hadir",
+        note:old?.note||"",
+        source:"Manual",
+        correctedBy:currentUser.uid,
+        updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+      });
+      count++;
+    });
+    await batch.commit();
+    await refreshAttendanceViews("attendanceSaveMessage",`${count} siswa disimpan. Input, rekap, dan data siswa sudah diselaraskan.`);
+  }catch(e){
+    msg("attendanceSaveMessage","Gagal menyimpan: "+e.message,"error");
+  }
 });
 function renderLeaveRequestsAdmin(){
   const rows=[...leaveRequests].sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
@@ -698,7 +730,16 @@ function renderStudentGrades(){
 
 /* STUDENT ATTENDANCE */
 function renderStudentAttendance(){
-  $("helperAccessCard").classList.toggle("hidden",profile?.attendanceHelper!==true);
+  const helperAssigned=profile?.attendanceHelper===true;
+  const helperState=helperDayState();
+  $("helperAccessCard").classList.toggle("hidden",!helperAssigned);
+  if(helperAssigned){
+    $("openHelperBtn").disabled=!helperState.allowed;
+    $("helperAccessStatus").textContent=helperState.allowed
+      ?"Aktif hari ini · hanya dapat mengisi kehadiran hari ini."
+      :helperState.reason;
+    $("helperAccessStatus").classList.toggle("helper-off",!helperState.allowed);
+  }
 
   if(!$("studentAttendanceMonth").value){
     $("studentAttendanceMonth").value=today().slice(0,7);
@@ -756,9 +797,31 @@ function renderStudentAttendanceCalendar(){
 
   $("studentAttendanceCalendar").innerHTML=html;
 }
-$("openHelperBtn").addEventListener("click",()=>showPage("studentHelper"));$("backToStudentAttendanceBtn").addEventListener("click",()=>showPage("studentAttendance"));
+
+const INDONESIA_NATIONAL_HOLIDAYS_2026=new Set([
+  "2026-01-01","2026-01-16","2026-02-17","2026-03-19","2026-03-21",
+  "2026-04-03","2026-04-05","2026-05-01","2026-05-14","2026-05-27",
+  "2026-05-31","2026-06-01","2026-06-16","2026-08-17","2026-08-25",
+  "2026-12-25"
+]);
+
+function helperDayState(date=today()){
+  const d=new Date(date+"T00:00:00");
+  const day=d.getDay();
+  if(day===0||day===6)return {allowed:false,reason:"Akses petugas kehadiran nonaktif pada Sabtu dan Minggu."};
+  if(INDONESIA_NATIONAL_HOLIDAYS_2026.has(date))return {allowed:false,reason:"Akses petugas kehadiran nonaktif pada hari libur nasional."};
+  return {allowed:true,reason:"Akses aktif hanya untuk kehadiran hari ini."};
+}
+
+$("openHelperBtn").addEventListener("click",()=>{
+  const state=helperDayState();
+  if(!state.allowed)return alert(state.reason);
+  showPage("studentHelper");
+});$("backToStudentAttendanceBtn").addEventListener("click",()=>showPage("studentAttendance"));
 async function loadHelperRoster(){
   if(profile?.attendanceHelper!==true)throw new Error("Akses petugas tidak aktif.");
+  const dayState=helperDayState();
+  if(!dayState.allowed)throw new Error(dayState.reason);
   const cls=String(profile.attendanceHelperClass||profile.kelas||"").trim();if(!cls)throw new Error("Kelas petugas belum ditetapkan.");
   const [r,a]=await Promise.all([
     db.collection("classRoster")
@@ -785,10 +848,26 @@ async function renderHelperAttendance(){
   }
 }
 $("saveHelperAttendanceBtn").addEventListener("click",async()=>{
+  const dayState=helperDayState();
+  if(!dayState.allowed)return msg("helperSaveMessage",dayState.reason,"error");
   const rows=[...$("helperAttendanceList").querySelectorAll(".att-row")],cls=String(profile.attendanceHelperClass||profile.kelas||"");
   msg("helperSaveMessage","Menyimpan…");try{
     let batch=db.batch(),n=0;
-    rows.forEach(row=>{if(row.dataset.locked==="1")return;const nis=row.dataset.nis,s=classRoster.find(x=>String(x.nis)===nis);batch.set(db.collection("attendance").doc(attendanceId(nis,today())),{nis,name:s?.name||"",kelas:cls,date:today(),status:row.dataset.status||"Hadir",note:"",source:"Petugas Siswa",helperUid:currentUser.uid,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});n++});
+    rows.forEach(row=>{
+      if(row.dataset.locked==="1")return;
+      const nis=row.dataset.nis,s=classRoster.find(x=>String(x.nis)===nis);
+      const canonicalId=attendanceId(nis,today());
+      duplicateAttendanceDocs(nis,today(),canonicalId)
+        .filter(x=>x.source!=="Pengajuan")
+        .forEach(x=>batch.delete(db.collection("attendance").doc(x.id)));
+      batch.set(db.collection("attendance").doc(canonicalId),{
+        nis,name:s?.name||"",kelas:cls,date:today(),
+        status:row.dataset.status||"Hadir",note:"",
+        source:"Petugas Siswa",helperUid:currentUser.uid,
+        updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+      });
+      n++;
+    });
     await batch.commit();msg("helperSaveMessage",`${n} siswa berhasil disimpan.`,"success");await renderHelperAttendance();
   }catch(e){msg("helperSaveMessage","Gagal menyimpan: "+e.message,"error")}
 });
