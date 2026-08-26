@@ -471,25 +471,41 @@ function monthLabel(month){
 function recordForAttendance(nis,date){return finalAttendanceRows().find(x=>String(x.nis)===String(nis)&&x.date===date)}
 function attendanceRowHtml(s,date,helper=false){
   const old=recordForAttendance(s.nis,date);
-  const locked=helper&&old?.source==="Pengajuan";
-  const rawStatus=old?.status||"Hadir";
-  const status=helper?(rawStatus==="Hadir"?"Hadir":(locked?rawStatus:"Alpa")):rawStatus;
+
+  // For student attendance helper:
+  // only approved Izin/Sakit is allowed to prefill.
+  // Everything else starts fresh as Hadir for today's entry.
+  const approvedLeave=helper
+    && old?.source==="Pengajuan"
+    && (old?.status==="Izin" || old?.status==="Sakit");
+
+  const locked=approvedLeave;
+  const rawStatus=approvedLeave ? old.status : (helper ? "Hadir" : (old?.status||"Hadir"));
+  const status=rawStatus;
+
   const choices=helper?["Hadir","Alpa"]:["Hadir","Sakit","Izin","Alpa"];
   const label=x=>helper&&x==="Alpa"?"Tidak Hadir":x;
-  const helperNote=locked
+
+  const helperNote=approvedLeave
     ? ` · ${rawStatus} sudah disetujui admin · status terkunci`
     : helper
-      ? " · klik untuk Hadir / Tidak Hadir"
+      ? " · belum diisi hari ini · default Hadir"
       : "";
-  const shownStatus=locked
+
+  const shownStatus=approvedLeave
     ? `${rawStatus} · Disetujui Admin`
     : (helper?label(status):status);
 
-  return `<div class="att-row ${locked?"locked approved-lock":""}" data-nis="${esc(s.nis)}" data-status="${esc(status)}" data-locked="${locked?"1":"0"}">
+  return `<div class="att-row ${locked?"locked approved-lock":""}"
+      data-nis="${esc(s.nis)}"
+      data-status="${esc(status)}"
+      data-locked="${locked?"1":"0"}">
     <div>
       <b>${esc(s.name||s.nama||"-")}</b>
       <small>NIS ${esc(s.nis)}${esc(helperNote)}</small>
-      <div class="status-picker hidden">${choices.map(x=>`<button type="button" data-status-pick="${x}" data-status-label="${label(x)}">${label(x)}</button>`).join("")}</div>
+      <div class="status-picker hidden">
+        ${choices.map(x=>`<button type="button" data-status-pick="${x}" data-status-label="${label(x)}">${label(x)}</button>`).join("")}
+      </div>
     </div>
     <span class="status-pill">${esc(shownStatus)}</span>
   </div>`;

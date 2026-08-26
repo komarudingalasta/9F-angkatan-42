@@ -157,3 +157,12 @@ Dashboard command center, status absensi harian, panel Perlu Perhatian, kalender
 - Sebelum menyimpan, aplikasi membaca ulang attendance hari ini untuk mencegah race condition jika admin baru saja menyetujui pengajuan.
 - Setelah simpan, daftar dimuat ulang sehingga status persetujuan terbaru langsung terlihat.
 - Firestore Rules tidak berubah; Rules yang ada sudah melarang petugas menimpa source Pengajuan.
+
+
+## V22.6 — Reset Harian Petugas Kehadiran
+- Setiap hari tampilan petugas siswa dimulai ulang dengan default Hadir.
+- Data Hadir/Alpa petugas dari hari lain tidak pernah terbawa.
+- Bahkan jika record hari ini sudah ada dari sumber non-Pengajuan, tampilan awal petugas tetap kembali ke default Hadir sebelum pengisian.
+- Hanya Izin/Sakit dari Pengajuan yang sudah disetujui admin yang otomatis tampil dan terkunci.
+- Admin tetap melihat status final sebenarnya pada halaman admin.
+- Firestore Rules tidak berubah.
