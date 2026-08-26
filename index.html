@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#1559b7">
   <title>PakKom Student Analytics</title>
-  <link rel="stylesheet" href="style.css?v=22.0">
+  <link rel="stylesheet" href="style.css?v=22.1">
 </head>
 <body>
 <div id="bootScreen" class="startup-screen">
@@ -125,7 +125,7 @@
       <div id="attendanceTodayPanel" class="tab-panel">
         <div class="card">
           <div class="section-head responsive"><div><span class="eyebrow">KEHADIRAN</span><h3>Isi Kehadiran</h3><p>Semua siswa default Hadir. Klik hanya yang tidak hadir.</p></div><input id="attendanceDate" type="date"></div>
-          <div id="attendanceSavedBanner" class="saved-banner hidden">✓ Kehadiran tanggal ini sudah tersimpan. Admin tetap dapat melakukan koreksi.</div>
+          <div id="attendanceSavedBanner" class="saved-banner hidden">✓ Kehadiran tanggal ini sudah tersimpan. Rekap dan tampilan siswa menggunakan data final tanggal ini.</div>
           <div class="status-summary"><span>H <b id="countH">0</b></span><span>S <b id="countS">0</b></span><span>I <b id="countI">0</b></span><span>A <b id="countA">0</b></span></div>
           <div id="attendanceList" class="attendance-list"></div>
           <div class="sticky-actions"><div id="attendanceSaveMessage" class="message"></div><button id="saveAttendanceBtn" class="btn primary" type="button">Simpan Kehadiran</button></div>
@@ -138,7 +138,7 @@
 
       <div id="attendanceRecapPanel" class="tab-panel hidden">
         <div class="card"><div class="section-head responsive"><div><span class="eyebrow">REKAP</span><h3>Rekap Kehadiran</h3></div><input id="recapMonth" type="month"></div>
-        <div class="table-scroll"><table><thead><tr><th>NIS</th><th>Nama</th><th>H</th><th>S</th><th>I</th><th>A</th><th>% Hadir</th></tr></thead><tbody id="recapBody"></tbody></table></div></div>
+        <div class="table-scroll"><table><thead><tr><th>NIS</th><th>Nama</th><th>H</th><th>S</th><th>I</th><th>A</th><th>Hari Tercatat</th><th>% Hadir</th></tr></thead><tbody id="recapBody"></tbody></table></div></div>
       </div>
 
       <div id="attendanceUploadPanel" class="tab-panel hidden">
@@ -221,7 +221,7 @@
         <button id="openHelperBtn" class="btn primary" type="button">Mulai Isi Kehadiran</button>
       </div>
       <div class="card">
-        <div class="section-head responsive"><div><span class="eyebrow">KEHADIRAN SAYA</span><h3>Ringkasan Kehadiran</h3></div><button id="openLeaveBtn" class="btn primary" type="button">Ajukan Izin / Sakit</button></div>
+        <div class="section-head responsive"><div><span class="eyebrow">KEHADIRAN SAYA</span><h3>Ringkasan Kehadiran <span id="studentAttendancePeriodLabel"></span></h3></div><button id="openLeaveBtn" class="btn primary" type="button">Ajukan Izin / Sakit</button></div>
         <div class="student-metrics attendance-metrics">
           <div><small>Hadir</small><strong id="stuH">0</strong></div>
           <div><small>Sakit</small><strong id="stuS">0</strong></div>
@@ -277,10 +277,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="firebase-config.js?v=22.0"></script>
+<script src="firebase-config.js?v=22.1"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="app.js?v=22.0"></script>
+<script src="app.js?v=22.1"></script>
 </body>
 </html>

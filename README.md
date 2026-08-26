@@ -110,3 +110,13 @@ Dashboard command center, status absensi harian, panel Perlu Perhatian, kalender
 - Tampilan siswa menampilkan persentase dan jumlah hari hadir dari total hari tercatat.
 - Istilah diseragamkan menjadi 'Alpa'.
 - Firestore Rules tidak berubah.
+
+
+## V22.1 — Kehadiran Konsisten per Bulan
+- Input harian tetap berdasarkan tanggal yang dipilih.
+- Rekap admin dan tampilan siswa memakai fungsi statistik yang sama.
+- Ringkasan H/S/I/A, persentase, kalender, dan riwayat siswa semuanya mengikuti bulan yang dipilih.
+- Rekap admin menampilkan Hari Tercatat.
+- Hari tanpa record tidak dihitung sebagai Hadir/Alpa dan ditampilkan sebagai Belum tercatat.
+- Persentase = Hadir / Hari Tercatat × 100.
+- Firestore Rules tidak berubah.

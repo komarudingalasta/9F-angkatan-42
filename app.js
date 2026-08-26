@@ -394,6 +394,17 @@ function attendanceStats(rows){
   return {rows:finalRows,hadir,sakit,izin,alpa,total,percentage};
 }
 
+function attendanceRowsForMonth(rows,month){
+  return finalAttendanceRows(rows).filter(x=>String(x.date||"").startsWith(month));
+}
+
+function monthLabel(month){
+  if(!month)return "";
+  const [y,m]=month.split("-").map(Number);
+  if(!y||!m)return month;
+  return new Intl.DateTimeFormat("id-ID",{month:"long",year:"numeric"}).format(new Date(y,m-1,1));
+}
+
 function recordForAttendance(nis,date){return finalAttendanceRows().find(x=>String(x.nis)===String(nis)&&x.date===date)}
 function attendanceRowHtml(s,date,helper=false){
   const old=recordForAttendance(s.nis,date);
@@ -510,10 +521,22 @@ $("recapMonth").addEventListener("change",renderRecap);
 function renderRecap(){
   const month=$("recapMonth").value||today().slice(0,7),roster=activeRoster();
   $("recapBody").innerHTML=roster.map(s=>{
-    const rows=finalAttendanceRows().filter(x=>String(x.nis)===String(s.nis)&&x.date?.startsWith(month));
-    const stat=attendanceStats(rows);
-    return `<tr><td>${esc(s.nis)}</td><td>${esc(s.name)}</td><td>${stat.hadir}</td><td>${stat.sakit}</td><td>${stat.izin}</td><td>${stat.alpa}</td><td>${stat.percentage}%</td></tr>`;
-  }).join("")||'<tr><td colspan="7">Belum ada data.</td></tr>';
+    const monthly=attendanceRowsForMonth(
+      finalAttendanceRows().filter(x=>String(x.nis)===String(s.nis)),
+      month
+    );
+    const stat=attendanceStats(monthly);
+    return `<tr>
+      <td>${esc(s.nis)}</td>
+      <td>${esc(s.name)}</td>
+      <td>${stat.hadir}</td>
+      <td>${stat.sakit}</td>
+      <td>${stat.izin}</td>
+      <td>${stat.alpa}</td>
+      <td>${stat.total}</td>
+      <td>${stat.percentage}%</td>
+    </tr>`;
+  }).join("")||'<tr><td colspan="8">Belum ada data.</td></tr>';
 }
 
 /* ATTENDANCE IMPORT */
@@ -528,7 +551,7 @@ $("attendanceFile").addEventListener("change",async()=>{
 });
 $("saveAttendanceImportBtn").addEventListener("click",async()=>{
   if(!attendanceImportRows.length)return;msg("attendanceImportMessage","Menyimpan…");$("saveAttendanceImportBtn").disabled=true;
-  try{let batch=db.batch(),n=0;for(const x of attendanceImportRows){batch.set(db.collection("attendance").doc(attendanceId(x.nis,x.date)),{nis:x.nis,name:x.student.name||"",kelas:x.student.kelas||"",date:x.date,status:x.status,note:"",source:"Upload",updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});n++;if(n%400===0){await batch.commit();batch=db.batch()}}if(n%400)await batch.commit();await loadRoleData();renderRecap();msg("attendanceImportMessage",`${n} catatan disimpan.`,"success")}
+  try{let batch=db.batch(),n=0;for(const x of attendanceImportRows){batch.set(db.collection("attendance").doc(attendanceId(x.nis,x.date)),{nis:x.nis,name:x.student.name||"",kelas:x.student.kelas||"",date:x.date,status:x.status,note:"",source:"Upload",updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});n++;if(n%400===0){await batch.commit();batch=db.batch()}}if(n%400)await batch.commit();await refreshAttendanceViews();msg("attendanceImportMessage",`${n} catatan disimpan dan rekap diperbarui.`,"success")}
   catch(e){msg("attendanceImportMessage","Gagal menyimpan: "+e.message,"error")}finally{$("saveAttendanceImportBtn").disabled=false}
 });
 
@@ -676,24 +699,61 @@ function renderStudentGrades(){
 /* STUDENT ATTENDANCE */
 function renderStudentAttendance(){
   $("helperAccessCard").classList.toggle("hidden",profile?.attendanceHelper!==true);
-  if(!$("studentAttendanceMonth").value)$("studentAttendanceMonth").value=today().slice(0,7);
-  const finalRows=finalAttendanceRows();
-  const stat=attendanceStats(finalRows);
+
+  if(!$("studentAttendanceMonth").value){
+    $("studentAttendanceMonth").value=today().slice(0,7);
+  }
+
+  const month=$("studentAttendanceMonth").value;
+  const monthlyRows=attendanceRowsForMonth(attendance,month);
+  const stat=attendanceStats(monthlyRows);
+
+  $("studentAttendancePeriodLabel").textContent=`· ${monthLabel(month)}`;
   $("stuH").textContent=stat.hadir;
   $("stuS").textContent=stat.sakit;
   $("stuI").textContent=stat.izin;
   $("stuA").textContent=stat.alpa;
   $("stuAttendancePercent").textContent=`${stat.percentage}%`;
-  $("stuAttendancePercentMeta").textContent=`${stat.hadir} dari ${stat.total} hari tercatat`;
-  $("studentAttendanceHistory").innerHTML=[...finalRows].sort((x,y)=>String(y.date).localeCompare(String(x.date))).map(x=>`<div class="history-row"><b>${esc(x.date)}</b> · ${esc(x.status)}${x.note?`<small> · ${esc(x.note)}</small>`:""}</div>`).join("")||'<div class="muted">Belum ada data kehadiran.</div>';
-  $("studentLeaveHistory").innerHTML=[...leaveRequests].sort((x,y)=>String(y.createdAt||"").localeCompare(String(x.createdAt||""))).map(x=>`<div class="history-row"><b>${esc(x.type)} · ${esc(x.startDate)}</b><small>${esc(x.status||"Menunggu")}${x.note?` · ${esc(x.note)}`:""}</small></div>`).join("")||'<div class="muted">Belum ada pengajuan.</div>';  renderStudentAttendanceCalendar();
+  $("stuAttendancePercentMeta").textContent=`${stat.hadir} hadir dari ${stat.total} hari tercatat`;
+
+  $("studentAttendanceHistory").innerHTML=[...monthlyRows]
+    .sort((x,y)=>String(y.date).localeCompare(String(x.date)))
+    .map(x=>`<div class="history-row"><b>${esc(x.date)}</b> · ${esc(x.status)}${x.note?`<small> · ${esc(x.note)}</small>`:""}</div>`)
+    .join("")||'<div class="muted">Belum ada data kehadiran pada bulan ini.</div>';
+
+  $("studentLeaveHistory").innerHTML=[...leaveRequests]
+    .filter(x=>String(x.startDate||"").startsWith(month))
+    .sort((x,y)=>String(y.createdAt||"").localeCompare(String(x.createdAt||"")))
+    .map(x=>`<div class="history-row"><b>${esc(x.type)} · ${esc(x.startDate)}</b><small>${esc(x.status||"Menunggu")}${x.note?` · ${esc(x.note)}`:""}</small></div>`)
+    .join("")||'<div class="muted">Belum ada pengajuan pada bulan ini.</div>';
+
+  renderStudentAttendanceCalendar();
 }
-$("studentAttendanceMonth").addEventListener("change",renderStudentAttendanceCalendar);
+$("studentAttendanceMonth").addEventListener("change",renderStudentAttendance);
 function renderStudentAttendanceCalendar(){
-  const month=$("studentAttendanceMonth").value||today().slice(0,7),[y,m]=month.split("-").map(Number),days=new Date(y,m,0).getDate(),first=new Date(y,m-1,1).getDay(),byDate=new Map(finalAttendanceRows().filter(x=>x.date?.startsWith(month)).map(x=>[x.date,x]));
-  let html=["Min","Sen","Sel","Rab","Kam","Jum","Sab"].map(x=>`<div class="cal-head">${x}</div>`).join("");
+  const month=$("studentAttendanceMonth").value||today().slice(0,7);
+  const [y,m]=month.split("-").map(Number);
+  const days=new Date(y,m,0).getDate();
+  const first=new Date(y,m-1,1).getDay();
+  const monthlyRows=attendanceRowsForMonth(attendance,month);
+  const byDate=new Map(monthlyRows.map(x=>[x.date,x]));
+
+  let html=["Min","Sen","Sel","Rab","Kam","Jum","Sab"]
+    .map(x=>`<div class="cal-head">${x}</div>`)
+    .join("");
+
   for(let i=0;i<first;i++)html+='<div class="cal-day blank"></div>';
-  for(let d=1;d<=days;d++){const date=`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`,r=byDate.get(date),code=r?.status?.[0]?.toLowerCase()||"";html+=`<div class="cal-day ${code?`cal-${code}`:""}"><b>${d}</b>${r?`<small>${esc(r.status)}</small>`:""}</div>`}
+
+  for(let d=1;d<=days;d++){
+    const date=`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const r=byDate.get(date);
+    const code=r?.status?.[0]?.toLowerCase()||"";
+    html+=`<div class="cal-day ${code?`cal-${code}`:""}">
+      <b>${d}</b>
+      ${r?`<small>${esc(r.status)}</small>`:"<small class=\"no-record\">Belum tercatat</small>"}
+    </div>`;
+  }
+
   $("studentAttendanceCalendar").innerHTML=html;
 }
 $("openHelperBtn").addEventListener("click",()=>showPage("studentHelper"));$("backToStudentAttendanceBtn").addEventListener("click",()=>showPage("studentAttendance"));
