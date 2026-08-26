@@ -97,3 +97,26 @@ label{display:block;font-size:12px;font-weight:800;margin:14px 0 6px}input,selec
 .attention-detail-card{max-width:720px}.attention-detail-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
 .attention-detail-metrics>div{padding:12px;border:1px solid var(--border);border-radius:14px}.attention-detail-metrics small{display:block;color:var(--muted)}.attention-detail-metrics strong{font-size:24px}.inset-card{box-shadow:none;margin:0}.reason-item{padding:8px 0;border-bottom:1px solid var(--border)}.reason-item:last-child{border-bottom:0}
 @media(max-width:600px){.attention-detail-metrics{grid-template-columns:1fr 1fr}}
+
+/* V22.5 Approved leave lock for attendance helper */
+.helper-approved-info{
+  margin:12px 0;
+  padding:12px 14px;
+  border:1px solid #d8e7f7;
+  background:#f1f7ff;
+  border-radius:13px;
+}
+.helper-approved-info b,.helper-approved-info span,.helper-approved-info small{display:block}
+.helper-approved-info span{margin-top:5px;font-size:11px;color:#245f9e}
+.helper-approved-info small{margin-top:5px;color:var(--muted)}
+.att-row.approved-lock{
+  border-color:#cbdff4;
+  background:#f6faff;
+  opacity:1;
+}
+.att-row.approved-lock .status-pill{
+  background:#e8f2ff;
+  color:#195b9d;
+  white-space:nowrap;
+}
+.att-row.approved-lock small{color:#426b94}

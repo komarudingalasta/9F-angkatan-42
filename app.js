@@ -476,9 +476,23 @@ function attendanceRowHtml(s,date,helper=false){
   const status=helper?(rawStatus==="Hadir"?"Hadir":(locked?rawStatus:"Alpa")):rawStatus;
   const choices=helper?["Hadir","Alpa"]:["Hadir","Sakit","Izin","Alpa"];
   const label=x=>helper&&x==="Alpa"?"Tidak Hadir":x;
-  return `<div class="att-row ${locked?"locked":""}" data-nis="${esc(s.nis)}" data-status="${esc(status)}" data-locked="${locked?"1":"0"}">
-    <div><b>${esc(s.name||s.nama||"-")}</b><small>NIS ${esc(s.nis)}${locked?" · status dari pengajuan disetujui":helper?" · klik untuk Hadir / Tidak Hadir":""}</small><div class="status-picker hidden">${choices.map(x=>`<button type="button" data-status-pick="${x}" data-status-label="${label(x)}">${label(x)}</button>`).join("")}</div></div>
-    <span class="status-pill">${esc(helper&&!locked?label(status):status)}</span></div>`;
+  const helperNote=locked
+    ? ` · ${rawStatus} sudah disetujui admin · status terkunci`
+    : helper
+      ? " · klik untuk Hadir / Tidak Hadir"
+      : "";
+  const shownStatus=locked
+    ? `${rawStatus} · Disetujui Admin`
+    : (helper?label(status):status);
+
+  return `<div class="att-row ${locked?"locked approved-lock":""}" data-nis="${esc(s.nis)}" data-status="${esc(status)}" data-locked="${locked?"1":"0"}">
+    <div>
+      <b>${esc(s.name||s.nama||"-")}</b>
+      <small>NIS ${esc(s.nis)}${esc(helperNote)}</small>
+      <div class="status-picker hidden">${choices.map(x=>`<button type="button" data-status-pick="${x}" data-status-label="${label(x)}">${label(x)}</button>`).join("")}</div>
+    </div>
+    <span class="status-pill">${esc(shownStatus)}</span>
+  </div>`;
 }
 function bindAttendanceList(id,onChange){
   $(id).onclick=e=>{
@@ -893,8 +907,32 @@ async function loadHelperRoster(){
 }
 async function renderHelperAttendance(){
   $("helperAttendanceList").innerHTML='<div class="muted">Memuat daftar siswa…</div>';
-  try{const cls=await loadHelperRoster();$("helperTitle").textContent=`Isi Kehadiran ${cls}`;$("helperAttendanceList").innerHTML=classRoster.sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(s=>attendanceRowHtml(s,today(),true)).join("")||'<div class="muted">Daftar siswa kelas masih kosong. Hubungi admin untuk Sinkronkan Daftar Siswa.</div>'}
-  catch(e){
+  $("helperApprovedInfo").classList.add("hidden");
+  $("helperApprovedInfo").innerHTML="";
+  try{
+    const cls=await loadHelperRoster();
+    $("helperTitle").textContent=`Isi Kehadiran ${cls}`;
+
+    const approved=finalAttendanceRows(attendance).filter(x=>
+      x.date===today() &&
+      x.kelas===cls &&
+      x.source==="Pengajuan" &&
+      (x.status==="Izin" || x.status==="Sakit")
+    );
+
+    if(approved.length){
+      $("helperApprovedInfo").classList.remove("hidden");
+      $("helperApprovedInfo").innerHTML=`
+        <b>${approved.length} siswa sudah memiliki status dari admin</b>
+        <span>${approved.map(x=>`${esc(x.name||x.nis)} · ${esc(x.status)}`).join(" · ")}</span>
+        <small>Status tersebut otomatis terkunci dan tidak perlu diisi kembali.</small>`;
+    }
+
+    $("helperAttendanceList").innerHTML=classRoster
+      .sort((a,b)=>(a.name||"").localeCompare(b.name||""))
+      .map(s=>attendanceRowHtml(s,today(),true))
+      .join("")||'<div class="muted">Daftar siswa kelas masih kosong. Hubungi admin untuk Sinkronkan Daftar Siswa.</div>';
+  }catch(e){
     console.error("Helper attendance load error:",e);
     let text=e.message||String(e);
     if((e.code||"").includes("permission-denied"))text="Akses kehadiran kelas ditolak. Pastikan status Petugas Kehadiran aktif dan kelas petugas sesuai.";
@@ -905,26 +943,72 @@ async function renderHelperAttendance(){
 $("saveHelperAttendanceBtn").addEventListener("click",async()=>{
   const dayState=helperDayState();
   if(!dayState.allowed)return msg("helperSaveMessage",dayState.reason,"error");
-  const rows=[...$("helperAttendanceList").querySelectorAll(".att-row")],cls=String(profile.attendanceHelperClass||profile.kelas||"");
-  msg("helperSaveMessage","Menyimpan…");try{
-    let batch=db.batch(),n=0;
+
+  const rows=[...$("helperAttendanceList").querySelectorAll(".att-row")];
+  const cls=String(profile.attendanceHelperClass||profile.kelas||"");
+  msg("helperSaveMessage","Memeriksa status izin/sakit terbaru…");
+
+  try{
+    // Re-read today's class immediately before saving.
+    // This protects an approval that happened after the helper opened the page.
+    const latestSnap=await db.collection("attendance")
+      .where("date","==",today())
+      .where("kelas","==",cls)
+      .get();
+
+    const latestRows=latestSnap.docs.map(d=>({id:d.id,...d.data()}));
+    const lockedNis=new Set(
+      finalAttendanceRows(latestRows)
+        .filter(x=>x.source==="Pengajuan" && (x.status==="Izin" || x.status==="Sakit"))
+        .map(x=>String(x.nis))
+    );
+
+    let batch=db.batch(),n=0,lockedCount=0;
+
     rows.forEach(row=>{
-      if(row.dataset.locked==="1")return;
-      const nis=row.dataset.nis,s=classRoster.find(x=>String(x.nis)===nis);
+      const nis=row.dataset.nis;
+
+      // Never overwrite an approved Izin/Sakit, even if it was approved
+      // after this page was loaded.
+      if(row.dataset.locked==="1" || lockedNis.has(nis)){
+        lockedCount++;
+        return;
+      }
+
+      const s=classRoster.find(x=>String(x.nis)===nis);
       const canonicalId=attendanceId(nis,today());
+
       duplicateAttendanceDocs(nis,today(),canonicalId)
         .filter(x=>x.source!=="Pengajuan")
         .forEach(x=>batch.delete(db.collection("attendance").doc(x.id)));
+
       batch.set(db.collection("attendance").doc(canonicalId),{
-        nis,name:s?.name||"",kelas:cls,date:today(),
-        status:row.dataset.status||"Hadir",note:"",
-        source:"Petugas Siswa",helperUid:currentUser.uid,
+        nis,
+        name:s?.name||"",
+        kelas:cls,
+        date:today(),
+        status:row.dataset.status||"Hadir",
+        note:"",
+        source:"Petugas Siswa",
+        helperUid:currentUser.uid,
         updatedAt:firebase.firestore.FieldValue.serverTimestamp()
       });
       n++;
     });
-    await batch.commit();msg("helperSaveMessage",`${n} siswa berhasil disimpan.`,"success");await renderHelperAttendance();
-  }catch(e){msg("helperSaveMessage","Gagal menyimpan: "+e.message,"error")}
+
+    if(n>0)await batch.commit();
+
+    msg(
+      "helperSaveMessage",
+      `${n} siswa disimpan${lockedCount?` · ${lockedCount} status Izin/Sakit dari admin tetap terkunci`:""}.`,
+      "success"
+    );
+
+    // Reload so newly approved statuses immediately appear in the helper UI.
+    await renderHelperAttendance();
+  }catch(e){
+    msg("helperSaveMessage","Gagal menyimpan: "+e.message,"error");
+  }
 });
 
 /* LEAVE REQUEST + DRIVE */

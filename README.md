@@ -147,3 +147,13 @@ Dashboard command center, status absensi harian, panel Perlu Perhatian, kalender
 - Dashboard dapat menampilkan seluruh siswa, tidak lagi berhenti pada 6 siswa.
 - Klik siswa membuka alasan dan ringkasan akademik/kehadiran.
 - Firestore Rules tidak berubah.
+
+
+## V22.5 — Izin/Sakit Terlihat & Terkunci untuk Petugas
+- Izin/Sakit yang disetujui admin langsung menjadi status attendance final.
+- Petugas siswa melihat label Izin/Sakit · Disetujui Admin.
+- Status pengajuan disetujui tidak dapat diklik atau diubah petugas.
+- Halaman petugas menampilkan ringkasan siswa yang sudah Izin/Sakit.
+- Sebelum menyimpan, aplikasi membaca ulang attendance hari ini untuk mencegah race condition jika admin baru saja menyetujui pengajuan.
+- Setelah simpan, daftar dimuat ulang sehingga status persetujuan terbaru langsung terlihat.
+- Firestore Rules tidak berubah; Rules yang ada sudah melarang petugas menimpa source Pengajuan.
