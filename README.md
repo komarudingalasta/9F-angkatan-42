@@ -102,3 +102,11 @@ Dashboard command center, status absensi harian, panel Perlu Perhatian, kalender
 - Persetujuan/penolakan izin-sakit juga langsung memicu refresh data terbaru.
 - Import kehadiran menggunakan refresh yang sama.
 - Firestore Rules tidak berubah.
+
+
+## V22 — Selaras Data Kehadiran
+- Hadir, Sakit, Izin, Alpa, rekap admin, dashboard, kalender, dan siswa memakai satu sumber status final per NIS + tanggal.
+- Persentase kehadiran siswa = Hadir / (Hadir + Sakit + Izin + Alpa) × 100.
+- Tampilan siswa menampilkan persentase dan jumlah hari hadir dari total hari tercatat.
+- Istilah diseragamkan menjadi 'Alpa'.
+- Firestore Rules tidak berubah.
