@@ -69,3 +69,11 @@ Dashboard command center, status absensi harian, panel Perlu Perhatian, kalender
 - NIS duplikat dicek.
 - Lampiran izin tetap dapat memilih galeri/file/kamera.
 - Firestore Rules disertakan dan selaras dengan V21.4/V21.5.
+
+
+## V21.6 — Attendance Final Status Fix
+- Satu siswa dan satu tanggal hanya dihitung satu status final.
+- Alpa yang kemudian disetujui sebagai Izin/Sakit tidak lagi ikut terhitung.
+- Pengajuan yang disetujui memiliki prioritas tertinggi pada rekap, dashboard, kalender, dan ringkasan siswa.
+- Saat persetujuan, duplikat lama pada NIS + tanggal yang sama dibersihkan.
+- Firestore Rules tidak berubah dari V21.5.

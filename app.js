@@ -191,7 +191,7 @@ function renderAdminDashboard(){
   records.forEach(r=>{const n=String(r.nis);const old=latestByNis.get(n);if(!old||semesterRank(r.semester)>=semesterRank(old.semester))latestByNis.set(n,r)});
   const avgs=[...latestByNis.values()].map(rowAvg).filter(Number.isFinite);
   $("dashAverage").textContent=avgs.length?fmt(avgs.reduce((a,b)=>a+b,0)/avgs.length):"—";
-  const todayRows=attendance.filter(x=>x.date===today());
+  const todayRows=finalAttendanceRows().filter(x=>x.date===today());
   $("dashPresent").textContent=todayRows.filter(x=>x.status==="Hadir").length;
   $("dashAttendanceState").textContent=todayRows.length?`${todayRows.length} siswa tercatat`:"Belum diabsen";
   const pending=leaveRequests.filter(x=>x.status==="Menunggu").length;$("dashPending").textContent=pending;
@@ -203,7 +203,7 @@ function renderAttentionList(){
   records.forEach(r=>{const n=String(r.nis);if(!byNis.has(n))byNis.set(n,[]);byNis.get(n).push(r)});
   const issues=[];
   roster.forEach(s=>{
-    const nis=String(s.nis),att=attendance.filter(x=>String(x.nis)===nis&&x.date?.startsWith(month));
+    const nis=String(s.nis),att=finalAttendanceRows().filter(x=>String(x.nis)===nis&&x.date?.startsWith(month));
     const alpa=att.filter(x=>x.status==="Alpa").length,total=att.length,hadir=att.filter(x=>x.status==="Hadir").length,rate=total?hadir/total*100:100;
     const rs=(byNis.get(nis)||[]).sort((a,b)=>semesterRank(a.semester)-semesterRank(b.semester)),last=rs.at(-1),prev=rs.at(-2),la=rowAvg(last),pa=rowAvg(prev),reasons=[];
     if(alpa>=3)reasons.push(`Alpa ${alpa}× bulan ini`);
@@ -309,7 +309,29 @@ function activeRoster(){
   if(classRoster.length)return [...classRoster].sort((a,b)=>(a.name||"").localeCompare(b.name||""));
   return studentProfiles().map(u=>({nis:String(u.nis||""),name:u.name||"",kelas:u.kelas||""})).filter(x=>x.nis).sort((a,b)=>a.name.localeCompare(b.name));
 }
-function recordForAttendance(nis,date){return attendance.find(x=>String(x.nis)===String(nis)&&x.date===date)}
+
+function attendancePriority(r){
+  if(r?.source==="Pengajuan") return 30;
+  if(r?.source==="Manual") return 20;
+  if(r?.source==="Petugas Siswa") return 15;
+  if(r?.source==="Upload") return 10;
+  return 1;
+}
+
+function finalAttendanceRows(rows=attendance){
+  const map=new Map();
+  rows.forEach(r=>{
+    if(!r?.nis || !r?.date) return;
+    const key=`${String(r.nis)}__${String(r.date)}`;
+    const old=map.get(key);
+    if(!old || attendancePriority(r)>=attendancePriority(old)){
+      map.set(key,r);
+    }
+  });
+  return [...map.values()];
+}
+
+function recordForAttendance(nis,date){return finalAttendanceRows().find(x=>String(x.nis)===String(nis)&&x.date===date)}
 function attendanceRowHtml(s,date,helper=false){
   const old=recordForAttendance(s.nis,date);
   const locked=helper&&old?.source==="Pengajuan";
@@ -344,7 +366,7 @@ function renderAdminAttendance(){
 $("attendanceDate").addEventListener("change",renderAttendanceToday);
 function renderAttendanceToday(){
   const d=$("attendanceDate").value||today(),list=activeRoster();
-  $("attendanceSavedBanner").classList.toggle("hidden",attendance.filter(x=>x.date===d).length===0);
+  $("attendanceSavedBanner").classList.toggle("hidden",finalAttendanceRows().filter(x=>x.date===d).length===0);
   $("attendanceList").innerHTML=list.map(s=>attendanceRowHtml(s,d,false)).join("")||'<div class="muted">Belum ada daftar siswa.</div>';updateAttendanceCounts();
 }
 $("saveAttendanceBtn").addEventListener("click",async()=>{
@@ -372,13 +394,47 @@ $("leaveRequestList").addEventListener("click",async e=>{
 function dateRange(start,end){const arr=[],a=new Date(start+"T00:00:00"),b=new Date((end||start)+"T00:00:00");for(let d=new Date(a);d<=b;d.setDate(d.getDate()+1))arr.push(d.toISOString().slice(0,10));return arr}
 async function approveLeave(req){
   const batch=db.batch();
-  dateRange(req.startDate,req.endDate).forEach(d=>batch.set(db.collection("attendance").doc(attendanceId(req.nis,d)),{nis:String(req.nis),name:req.name||"",kelas:req.kelas||"",date:d,status:req.type,note:req.note||"",source:"Pengajuan",leaveRequestId:req.id,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}));
-  batch.update(db.collection("leaveRequests").doc(req.id),{status:"Disetujui",updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await batch.commit();
+
+  for(const d of dateRange(req.startDate,req.endDate)){
+    const canonicalId=attendanceId(req.nis,d);
+
+    // Bersihkan dokumen duplikat lama pada siswa + tanggal yang sama.
+    attendance
+      .filter(x=>String(x.nis)===String(req.nis) && x.date===d && x.id!==canonicalId)
+      .forEach(x=>batch.delete(db.collection("attendance").doc(x.id)));
+
+    // Status dari pengajuan menjadi status final untuk tanggal tersebut.
+    batch.set(
+      db.collection("attendance").doc(canonicalId),
+      {
+        nis:String(req.nis),
+        name:req.name||"",
+        kelas:req.kelas||"",
+        date:d,
+        status:req.type,
+        note:req.note||"",
+        source:"Pengajuan",
+        leaveRequestId:req.id,
+        updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+      },
+      {merge:true}
+    );
+  }
+
+  batch.update(
+    db.collection("leaveRequests").doc(req.id),
+    {
+      status:"Disetujui",
+      updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+    }
+  );
+
+  await batch.commit();
 }
 $("recapMonth").addEventListener("change",renderRecap);
 function renderRecap(){
   const month=$("recapMonth").value||today().slice(0,7),roster=activeRoster();
-  $("recapBody").innerHTML=roster.map(s=>{const a=attendance.filter(x=>String(x.nis)===String(s.nis)&&x.date?.startsWith(month));const h=a.filter(x=>x.status==="Hadir").length,sa=a.filter(x=>x.status==="Sakit").length,i=a.filter(x=>x.status==="Izin").length,al=a.filter(x=>x.status==="Alpa").length,total=h+sa+i+al,p=total?Math.round(h/total*100):0;return `<tr><td>${esc(s.nis)}</td><td>${esc(s.name)}</td><td>${h}</td><td>${sa}</td><td>${i}</td><td>${al}</td><td>${p}%</td></tr>`}).join("")||'<tr><td colspan="7">Belum ada data.</td></tr>';
+  $("recapBody").innerHTML=roster.map(s=>{const a=finalAttendanceRows().filter(x=>String(x.nis)===String(s.nis)&&x.date?.startsWith(month));const h=a.filter(x=>x.status==="Hadir").length,sa=a.filter(x=>x.status==="Sakit").length,i=a.filter(x=>x.status==="Izin").length,al=a.filter(x=>x.status==="Alpa").length,total=h+sa+i+al,p=total?Math.round(h/total*100):0;return `<tr><td>${esc(s.nis)}</td><td>${esc(s.name)}</td><td>${h}</td><td>${sa}</td><td>${i}</td><td>${al}</td><td>${p}%</td></tr>`}).join("")||'<tr><td colspan="7">Belum ada data.</td></tr>';
 }
 
 /* ATTENDANCE IMPORT */
@@ -542,14 +598,15 @@ function renderStudentGrades(){
 function renderStudentAttendance(){
   $("helperAccessCard").classList.toggle("hidden",profile?.attendanceHelper!==true);
   if(!$("studentAttendanceMonth").value)$("studentAttendanceMonth").value=today().slice(0,7);
-  const h=attendance.filter(x=>x.status==="Hadir").length,s=attendance.filter(x=>x.status==="Sakit").length,i=attendance.filter(x=>x.status==="Izin").length,a=attendance.filter(x=>x.status==="Alpa").length;
+  const finalRows=finalAttendanceRows();
+  const h=finalRows.filter(x=>x.status==="Hadir").length,s=finalRows.filter(x=>x.status==="Sakit").length,i=finalRows.filter(x=>x.status==="Izin").length,a=finalRows.filter(x=>x.status==="Alpa").length;
   $("stuH").textContent=h;$("stuS").textContent=s;$("stuI").textContent=i;$("stuA").textContent=a;
-  $("studentAttendanceHistory").innerHTML=[...attendance].sort((x,y)=>String(y.date).localeCompare(String(x.date))).map(x=>`<div class="history-row"><b>${esc(x.date)}</b> · ${esc(x.status)}${x.note?`<small> · ${esc(x.note)}</small>`:""}</div>`).join("")||'<div class="muted">Belum ada data kehadiran.</div>';
+  $("studentAttendanceHistory").innerHTML=[...finalRows].sort((x,y)=>String(y.date).localeCompare(String(x.date))).map(x=>`<div class="history-row"><b>${esc(x.date)}</b> · ${esc(x.status)}${x.note?`<small> · ${esc(x.note)}</small>`:""}</div>`).join("")||'<div class="muted">Belum ada data kehadiran.</div>';
   $("studentLeaveHistory").innerHTML=[...leaveRequests].sort((x,y)=>String(y.createdAt||"").localeCompare(String(x.createdAt||""))).map(x=>`<div class="history-row"><b>${esc(x.type)} · ${esc(x.startDate)}</b><small>${esc(x.status||"Menunggu")}${x.note?` · ${esc(x.note)}`:""}</small></div>`).join("")||'<div class="muted">Belum ada pengajuan.</div>';  renderStudentAttendanceCalendar();
 }
 $("studentAttendanceMonth").addEventListener("change",renderStudentAttendanceCalendar);
 function renderStudentAttendanceCalendar(){
-  const month=$("studentAttendanceMonth").value||today().slice(0,7),[y,m]=month.split("-").map(Number),days=new Date(y,m,0).getDate(),first=new Date(y,m-1,1).getDay(),byDate=new Map(attendance.filter(x=>x.date?.startsWith(month)).map(x=>[x.date,x]));
+  const month=$("studentAttendanceMonth").value||today().slice(0,7),[y,m]=month.split("-").map(Number),days=new Date(y,m,0).getDate(),first=new Date(y,m-1,1).getDay(),byDate=new Map(finalAttendanceRows().filter(x=>x.date?.startsWith(month)).map(x=>[x.date,x]));
   let html=["Min","Sen","Sel","Rab","Kam","Jum","Sab"].map(x=>`<div class="cal-head">${x}</div>`).join("");
   for(let i=0;i<first;i++)html+='<div class="cal-day blank"></div>';
   for(let d=1;d<=days;d++){const date=`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`,r=byDate.get(date),code=r?.status?.[0]?.toLowerCase()||"";html+=`<div class="cal-day ${code?`cal-${code}`:""}"><b>${d}</b>${r?`<small>${esc(r.status)}</small>`:""}</div>`}
