@@ -129,3 +129,12 @@ Dashboard command center, status absensi harian, panel Perlu Perhatian, kalender
 - Akses petugas otomatis off Sabtu, Minggu, dan daftar hari libur nasional Indonesia 2026.
 - Admin tetap dapat memperbaiki tanggal lampau.
 - Firestore Rules tidak berubah; pembatasan kalender petugas dilakukan di aplikasi.
+
+
+## V22.3 — Ringkasan Kehadiran Keseluruhan
+- Kalender kehadiran tetap per bulan.
+- Ringkasan Hadir/Sakit/Izin/Alpa menghitung seluruh data kehadiran final siswa.
+- Persentase kehadiran menghitung seluruh hari tercatat.
+- Riwayat kehadiran dan pengajuan tampil secara keseluruhan.
+- Mengganti bulan hanya memperbarui kalender, tidak mengubah ringkasan.
+- Firestore Rules tidak berubah.

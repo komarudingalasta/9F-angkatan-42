@@ -745,11 +745,10 @@ function renderStudentAttendance(){
     $("studentAttendanceMonth").value=today().slice(0,7);
   }
 
-  const month=$("studentAttendanceMonth").value;
-  const monthlyRows=attendanceRowsForMonth(attendance,month);
-  const stat=attendanceStats(monthlyRows);
+  // Ringkasan menggunakan seluruh data kehadiran final siswa.
+  const allRows=finalAttendanceRows(attendance);
+  const stat=attendanceStats(allRows);
 
-  $("studentAttendancePeriodLabel").textContent=`· ${monthLabel(month)}`;
   $("stuH").textContent=stat.hadir;
   $("stuS").textContent=stat.sakit;
   $("stuI").textContent=stat.izin;
@@ -757,20 +756,21 @@ function renderStudentAttendance(){
   $("stuAttendancePercent").textContent=`${stat.percentage}%`;
   $("stuAttendancePercentMeta").textContent=`${stat.hadir} hadir dari ${stat.total} hari tercatat`;
 
-  $("studentAttendanceHistory").innerHTML=[...monthlyRows]
+  // Riwayat menampilkan data terbaru secara keseluruhan.
+  $("studentAttendanceHistory").innerHTML=[...allRows]
     .sort((x,y)=>String(y.date).localeCompare(String(x.date)))
     .map(x=>`<div class="history-row"><b>${esc(x.date)}</b> · ${esc(x.status)}${x.note?`<small> · ${esc(x.note)}</small>`:""}</div>`)
-    .join("")||'<div class="muted">Belum ada data kehadiran pada bulan ini.</div>';
+    .join("")||'<div class="muted">Belum ada data kehadiran.</div>';
 
   $("studentLeaveHistory").innerHTML=[...leaveRequests]
-    .filter(x=>String(x.startDate||"").startsWith(month))
     .sort((x,y)=>String(y.createdAt||"").localeCompare(String(x.createdAt||"")))
     .map(x=>`<div class="history-row"><b>${esc(x.type)} · ${esc(x.startDate)}</b><small>${esc(x.status||"Menunggu")}${x.note?` · ${esc(x.note)}`:""}</small></div>`)
-    .join("")||'<div class="muted">Belum ada pengajuan pada bulan ini.</div>';
+    .join("")||'<div class="muted">Belum ada pengajuan.</div>';
 
+  // Kalender tetap mengikuti bulan yang dipilih.
   renderStudentAttendanceCalendar();
 }
-$("studentAttendanceMonth").addEventListener("change",renderStudentAttendance);
+$("studentAttendanceMonth").addEventListener("change",renderStudentAttendanceCalendar);
 function renderStudentAttendanceCalendar(){
   const month=$("studentAttendanceMonth").value||today().slice(0,7);
   const [y,m]=month.split("-").map(Number);
