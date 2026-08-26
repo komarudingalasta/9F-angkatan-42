@@ -53,3 +53,17 @@ label{display:block;font-size:12px;font-weight:800;margin:14px 0 6px}input,selec
 .startup-card{display:grid;justify-items:center;gap:10px;text-align:center;color:var(--ink,#182230)}
 .startup-card .brand-mark{margin:0}
 .startup-card strong{font-size:16px}.startup-card span{font-size:11px;color:var(--muted,#687386)}
+
+/* V21.5 Manual Student */
+.manual-student-form{
+  display:grid;
+  grid-template-columns:1fr 2fr 1fr 1.3fr;
+  gap:12px;
+  align-items:end;
+  margin-top:12px;
+}
+.manual-student-form label{margin:0}
+.manual-student-actions{display:flex;align-items:end}
+.manual-student-actions .btn{width:100%}
+@media(max-width:900px){.manual-student-form{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.manual-student-form{grid-template-columns:1fr}}

@@ -59,3 +59,13 @@ Dashboard command center, status absensi harian, panel Perlu Perhatian, kalender
 - Rules membatasi write petugas hanya status Hadir/Alpa.
 - Startup screen menunggu Firebase memulihkan sesi sehingga login tidak berkedip saat refresh.
 - Firestore Rules BERUBAH dan wajib dipublish.
+
+
+## V21.5 — Tambah Siswa Manual
+- Admin dapat menambah siswa satu per satu dari Pengaturan.
+- Form: NIS, nama, kelas, password awal.
+- Secondary Firebase Auth mencegah sesi admin berubah menjadi akun siswa baru.
+- users/{uid} dan classRoster dibuat otomatis.
+- NIS duplikat dicek.
+- Lampiran izin tetap dapat memilih galeri/file/kamera.
+- Firestore Rules disertakan dan selaras dengan V21.4/V21.5.

@@ -39,21 +39,18 @@ service cloud.firestore {
       return me().attendanceHelperClass;
     }
 
-    // Profil akun
     match /users/{uid} {
       allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
       allow list: if isAdmin();
       allow create, update, delete: if isAdmin();
     }
 
-    // Nilai akademik
     match /records/{id} {
       allow get, list: if isAdmin()
         || (isStudent() && resource.data.nis == myNis());
       allow create, update, delete: if isAdmin();
     }
 
-    // Ringkasan/ranking akademik
     match /studentSummaries/{id} {
       allow get, list: if isAdmin()
         || (isStudent() && resource.data.nis == myNis());
@@ -65,36 +62,44 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
-    // Daftar siswa untuk admin dan siswa petugas.
-    // Data ini hanya berisi NIS, nama, kelas.
     match /classRoster/{id} {
       allow get, list: if isAdmin()
         || (isHelper() && resource.data.kelas == helperClass());
       allow create, update, delete: if isAdmin();
     }
 
-    // Kehadiran
     match /attendance/{id} {
       allow get, list: if isAdmin()
         || (isStudent() && resource.data.nis == myNis())
         || (isHelper() && resource.data.kelas == helperClass());
 
       allow create: if isAdmin()
-        || (isHelper()
+        || (
+          isHelper()
           && request.resource.data.kelas == helperClass()
-          && request.resource.data.source == "Petugas Siswa");
+          && request.resource.data.source == "Petugas Siswa"
+          && (
+            request.resource.data.status == "Hadir"
+            || request.resource.data.status == "Alpa"
+          )
+        );
 
       allow update: if isAdmin()
-        || (isHelper()
+        || (
+          isHelper()
           && resource.data.kelas == helperClass()
           && request.resource.data.kelas == helperClass()
           && resource.data.source != "Pengajuan"
-          && request.resource.data.source == "Petugas Siswa");
+          && request.resource.data.source == "Petugas Siswa"
+          && (
+            request.resource.data.status == "Hadir"
+            || request.resource.data.status == "Alpa"
+          )
+        );
 
       allow delete: if isAdmin();
     }
 
-    // Pengajuan izin/sakit
     match /leaveRequests/{id} {
       allow get, list: if isAdmin()
         || (isStudent() && resource.data.nis == myNis());
@@ -102,8 +107,10 @@ service cloud.firestore {
       allow create: if isStudent()
         && request.resource.data.nis == myNis()
         && request.resource.data.status == "Menunggu"
-        && (request.resource.data.type == "Sakit"
-          || request.resource.data.type == "Izin");
+        && (
+          request.resource.data.type == "Sakit"
+          || request.resource.data.type == "Izin"
+        );
 
       allow update, delete: if isAdmin();
     }

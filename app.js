@@ -397,6 +397,95 @@ $("saveAttendanceImportBtn").addEventListener("click",async()=>{
   catch(e){msg("attendanceImportMessage","Gagal menyimpan: "+e.message,"error")}finally{$("saveAttendanceImportBtn").disabled=false}
 });
 
+
+/* MANUAL STUDENT */
+function randomStudentPassword(){
+  const chars="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  let out="";
+  for(let i=0;i<8;i++)out+=chars[Math.floor(Math.random()*chars.length)];
+  return out;
+}
+
+$("generateStudentPasswordBtn")?.addEventListener("click",()=>{
+  $("manualStudentPassword").value=randomStudentPassword();
+});
+
+$("manualStudentForm")?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  if(!isAdmin())return;
+
+  const nis=String($("manualStudentNis").value||"").trim();
+  const name=String($("manualStudentName").value||"").trim();
+  const kelas=String($("manualStudentClass").value||"").trim();
+  const password=String($("manualStudentPassword").value||"");
+
+  if(!nis||!name||!kelas||!password){
+    return msg("manualStudentMessage","Lengkapi seluruh data siswa.","error");
+  }
+  if(password.length<6){
+    return msg("manualStudentMessage","Password minimal 6 karakter.","error");
+  }
+  const duplicate=users.find(u=>String(u.nis||"").trim()===nis);
+  if(duplicate){
+    return msg("manualStudentMessage",`NIS ${nis} sudah digunakan oleh ${duplicate.name||"siswa lain"}.`,"error");
+  }
+
+  const email=studentEmail(nis);
+  const btn=$("saveManualStudentBtn");
+  btn.disabled=true;
+  msg("manualStudentMessage","Membuat akun siswa…");
+
+  let secondaryApp=null;
+  try{
+    const secondaryName="student-create-"+Date.now();
+    secondaryApp=firebase.initializeApp(firebaseConfig,secondaryName);
+    const secondaryAuth=secondaryApp.auth();
+
+    const cred=await secondaryAuth.createUserWithEmailAndPassword(email,password);
+    const uid=cred.user.uid;
+
+    const batch=db.batch();
+    batch.set(db.collection("users").doc(uid),{
+      nis,name,kelas,email,role:"student",
+      defaultPassword:true,
+      attendanceHelper:false,
+      attendanceHelperClass:"",
+      updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+    },{merge:true});
+
+    batch.set(db.collection("classRoster").doc(slug(nis)),{
+      nis,name,kelas,
+      updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+    },{merge:true});
+
+    await batch.commit();
+    await secondaryAuth.signOut();
+
+    await loadRoleData();
+    renderSettings();
+    renderAdminDashboard();
+
+    $("manualStudentForm").reset();
+    $("manualStudentClass").value="9F";
+    $("manualStudentPassword").value="123456";
+
+    msg("manualStudentMessage",`${name} berhasil ditambahkan. Login siswa menggunakan NIS ${nis}.`,"success");
+  }catch(err){
+    console.error("Manual student create error:",err);
+    let text=err?.message||String(err);
+    const code=err?.code||"";
+    if(code.includes("email-already-in-use"))text=`NIS ${nis} sudah memiliki akun Authentication.`;
+    else if(code.includes("weak-password"))text="Password terlalu lemah. Gunakan minimal 6 karakter.";
+    else if(code.includes("operation-not-allowed"))text="Login Email/Password belum diaktifkan di Firebase Authentication.";
+    else if(code.includes("permission-denied"))text="Firestore menolak pembuatan profil siswa. Pastikan akun yang login adalah admin.";
+    msg("manualStudentMessage","Gagal menambah siswa: "+text,"error");
+  }finally{
+    try{ if(secondaryApp) await secondaryApp.delete(); }catch(_){}
+    btn.disabled=false;
+  }
+});
+
+
 /* SETTINGS / HELPERS */
 async function syncRoster(){
   if(!isAdmin())return 0;
