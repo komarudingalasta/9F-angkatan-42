@@ -77,3 +77,12 @@ Dashboard command center, status absensi harian, panel Perlu Perhatian, kalender
 - Pengajuan yang disetujui memiliki prioritas tertinggi pada rekap, dashboard, kalender, dan ringkasan siswa.
 - Saat persetujuan, duplikat lama pada NIS + tanggal yang sama dibersihkan.
 - Firestore Rules tidak berubah dari V21.5.
+
+
+## V21.7 — Kelola Nilai Admin
+- NIS + semester menjadi kunci nilai; upload terbaru menimpa data semester lama.
+- Jika file upload mengandung NIS + semester berulang, baris terakhir yang dipakai.
+- Admin dapat Edit dan Hapus nilai per siswa/semester.
+- Hapus hanya menghapus nilai semester terkait, bukan akun siswa.
+- Ringkasan, posisi akademik, grafik, dan dashboard dihitung ulang setelah perubahan.
+- Siswa tetap read-only; Firestore Rules tidak berubah dari V21.6.

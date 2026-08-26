@@ -242,7 +242,7 @@ function renderAcademicTable(){
   const cls=$("academicClassFilter").value,sem=$("academicSemesterFilter").value,q=$("academicSearch").value.trim().toLowerCase();
   const rows=records.filter(r=>(!cls||r.kelas===cls)&&(!sem||String(r.semester)===sem)&&(!q||`${r.nama} ${r.nis}`.toLowerCase().includes(q)))
     .sort((a,b)=>(a.kelas||"").localeCompare(b.kelas||"")||(a.nama||"").localeCompare(b.nama||""));
-  $("academicTableBody").innerHTML=rows.map(r=>`<tr><td>${esc(r.nis)}</td><td>${esc(r.nama)}</td><td>${esc(r.kelas)}</td><td>${esc(r.semester)}</td><td>${fmt(rowAvg(r))}</td></tr>`).join("")||'<tr><td colspan="5">Belum ada data.</td></tr>';
+  $("academicTableBody").innerHTML=rows.map(r=>`<tr><td>${esc(r.nis)}</td><td>${esc(r.nama)}</td><td>${esc(r.kelas)}</td><td>${esc(r.semester)}</td><td>${fmt(rowAvg(r))}</td><td><div class="row-actions"><button class="btn ghost compact" type="button" data-grade-edit="${esc(r.id)}">Edit</button><button class="btn danger compact" type="button" data-grade-delete="${esc(r.id)}">Hapus</button></div></td></tr>`).join("")||'<tr><td colspan="6">Belum ada data.</td></tr>';
 }
 ["academicClassFilter","academicSemesterFilter","academicSearch"].forEach(id=>$(id).addEventListener(id==="academicSearch"?"input":"change",renderAcademicTable));
 function renderSubjects(){
@@ -276,14 +276,65 @@ $("saveGradeImportBtn").addEventListener("click",async()=>{
   const rows=gradeImportRows.filter(x=>x.valid);if(!rows.length)return;
   $("saveGradeImportBtn").disabled=true;msg("gradeImportMessage","Menyimpan…");
   try{
+    const latest=new Map();
+    rows.forEach(r=>latest.set(`${String(r.nis)}__${String(r.semester)}`,r));
     let batch=db.batch(),count=0;
-    rows.forEach(r=>{const id=`${slug(r.nis)}_${slug(r.semester)}`.slice(0,220);batch.set(db.collection("records").doc(id),{nis:r.nis,nama:r.nama,kelas:r.kelas,semester:r.semester,scores:r.scores,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});count++});
+    latest.forEach(r=>{
+      const id=`${slug(r.nis)}_${slug(r.semester)}`.slice(0,220);
+      batch.set(db.collection("records").doc(id),{nis:r.nis,nama:r.nama,kelas:r.kelas,semester:r.semester,scores:r.scores,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+      count++;
+    });
     await batch.commit();
     await loadRoleData();await rebuildSummaries();await syncRoster();renderAdminAcademic();renderAdminDashboard();
     msg("gradeImportMessage",`${count} data berhasil disimpan.`,"success");
   }catch(e){msg("gradeImportMessage","Gagal menyimpan: "+e.message,"error")}
   finally{$("saveGradeImportBtn").disabled=false}
 });
+
+let editingGradeId=null;
+
+$("academicTableBody").addEventListener("click",async e=>{
+  const edit=e.target.closest("[data-grade-edit]");
+  const del=e.target.closest("[data-grade-delete]");
+  if(edit){
+    const r=records.find(x=>x.id===edit.dataset.gradeEdit);
+    if(!r)return;
+    editingGradeId=r.id;
+    $("gradeEditTitle").textContent=`Edit Nilai · ${r.nama||r.nis}`;
+    $("gradeEditMeta").textContent=`NIS ${r.nis} · ${r.kelas} · Semester ${r.semester}`;
+    const keys=Object.keys(r.scores||{}).sort();
+    $("gradeEditFields").innerHTML=keys.map(k=>`<label>${esc(subjectLabel(k))}<input type="number" min="0" max="100" step="0.01" data-grade-key="${esc(k)}" value="${esc(r.scores[k])}"></label>`).join("")||'<div class="muted">Tidak ada nilai mapel.</div>';
+    $("gradeEditMessage").textContent="";
+    $("gradeEditModal").classList.remove("hidden");
+    return;
+  }
+  if(del){
+    const r=records.find(x=>x.id===del.dataset.gradeDelete);
+    if(!r)return;
+    if(!confirm(`Hapus nilai ${r.nama||r.nis} untuk Semester ${r.semester}?\\n\\nAkun siswa dan semester lainnya tidak akan dihapus.`))return;
+    try{
+      await db.collection("records").doc(r.id).delete();
+      await loadRoleData();await rebuildSummaries();renderAdminAcademic();renderAdminDashboard();
+    }catch(err){alert("Gagal menghapus nilai: "+err.message)}
+  }
+});
+
+$("closeGradeEditBtn").addEventListener("click",()=>$("gradeEditModal").classList.add("hidden"));
+$("saveGradeEditBtn").addEventListener("click",async()=>{
+  const r=records.find(x=>x.id===editingGradeId);if(!r)return;
+  const scores={...r.scores};
+  $("gradeEditFields").querySelectorAll("[data-grade-key]").forEach(inp=>{
+    const n=Number(inp.value);if(Number.isFinite(n))scores[inp.dataset.gradeKey]=n;
+  });
+  $("saveGradeEditBtn").disabled=true;
+  try{
+    await db.collection("records").doc(r.id).update({scores,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    await loadRoleData();await rebuildSummaries();renderAdminAcademic();renderAdminDashboard();
+    $("gradeEditModal").classList.add("hidden");
+  }catch(err){msg("gradeEditMessage","Gagal menyimpan: "+err.message,"error")}
+  finally{$("saveGradeEditBtn").disabled=false}
+});
+
 async function rebuildSummaries(){
   if(!isAdmin())return;
   const byNis=new Map();records.forEach(r=>{const n=String(r.nis);if(!byNis.has(n))byNis.set(n,[]);byNis.get(n).push(r)});

@@ -67,3 +67,6 @@ label{display:block;font-size:12px;font-weight:800;margin:14px 0 6px}input,selec
 .manual-student-actions .btn{width:100%}
 @media(max-width:900px){.manual-student-form{grid-template-columns:1fr 1fr}}
 @media(max-width:560px){.manual-student-form{grid-template-columns:1fr}}
+
+/* V21.7 Grade Management */
+.row-actions{display:flex;gap:6px;flex-wrap:wrap}.btn.danger{background:#fff0f0;border-color:#f0c5c8;color:#ad2733}.grade-edit-card{max-width:720px}.grade-edit-fields{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}.grade-edit-fields label{margin:0}.modal-actions{display:flex;justify-content:flex-end}@media(max-width:700px){.grade-edit-fields{grid-template-columns:1fr 1fr}}@media(max-width:480px){.grade-edit-fields{grid-template-columns:1fr}}
