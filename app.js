@@ -471,25 +471,41 @@ function monthLabel(month){
 function recordForAttendance(nis,date){return finalAttendanceRows().find(x=>String(x.nis)===String(nis)&&x.date===date)}
 function attendanceRowHtml(s,date,helper=false){
   const old=recordForAttendance(s.nis,date);
-  const locked=helper&&old?.source==="Pengajuan";
-  const rawStatus=old?.status||"Hadir";
-  const status=helper?(rawStatus==="Hadir"?"Hadir":(locked?rawStatus:"Alpa")):rawStatus;
+
+  // For student attendance helper:
+  // only approved Izin/Sakit is allowed to prefill.
+  // Everything else starts fresh as Hadir for today's entry.
+  const approvedLeave=helper
+    && old?.source==="Pengajuan"
+    && (old?.status==="Izin" || old?.status==="Sakit");
+
+  const locked=approvedLeave;
+  const rawStatus=approvedLeave ? old.status : (helper ? "Hadir" : (old?.status||"Hadir"));
+  const status=rawStatus;
+
   const choices=helper?["Hadir","Alpa"]:["Hadir","Sakit","Izin","Alpa"];
   const label=x=>helper&&x==="Alpa"?"Tidak Hadir":x;
-  const helperNote=locked
+
+  const helperNote=approvedLeave
     ? ` · ${rawStatus} sudah disetujui admin · status terkunci`
     : helper
-      ? " · klik untuk Hadir / Tidak Hadir"
+      ? " · belum diisi hari ini · default Hadir"
       : "";
-  const shownStatus=locked
+
+  const shownStatus=approvedLeave
     ? `${rawStatus} · Disetujui Admin`
     : (helper?label(status):status);
 
-  return `<div class="att-row ${locked?"locked approved-lock":""}" data-nis="${esc(s.nis)}" data-status="${esc(status)}" data-locked="${locked?"1":"0"}">
+  return `<div class="att-row ${locked?"locked approved-lock":""}"
+      data-nis="${esc(s.nis)}"
+      data-status="${esc(status)}"
+      data-locked="${locked?"1":"0"}">
     <div>
       <b>${esc(s.name||s.nama||"-")}</b>
       <small>NIS ${esc(s.nis)}${esc(helperNote)}</small>
-      <div class="status-picker hidden">${choices.map(x=>`<button type="button" data-status-pick="${x}" data-status-label="${label(x)}">${label(x)}</button>`).join("")}</div>
+      <div class="status-picker hidden">
+        ${choices.map(x=>`<button type="button" data-status-pick="${x}" data-status-label="${label(x)}">${label(x)}</button>`).join("")}
+      </div>
     </div>
     <span class="status-pill">${esc(shownStatus)}</span>
   </div>`;
@@ -619,23 +635,55 @@ async function approveLeave(req){
   await batch.commit();
 }
 $("recapMonth").addEventListener("change",renderRecap);
+$("recapMode").addEventListener("change",()=>{
+  const custom=$("recapMode").value==="custom";
+  $("recapMonth").classList.toggle("hidden",custom);
+  $("recapCustomRange").classList.toggle("hidden",!custom);
+  if(custom){
+    if(!$("recapEndDate").value)$("recapEndDate").value=today();
+    if(!$("recapStartDate").value){
+      const d=new Date();d.setDate(d.getDate()-29);
+      $("recapStartDate").value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    }
+  }
+  renderRecap();
+});
+$("recapStartDate").addEventListener("change",renderRecap);
+$("recapEndDate").addEventListener("change",renderRecap);
+function recapPeriod(){
+  const mode=$("recapMode").value||"month";
+  if(mode==="custom"){
+    const start=$("recapStartDate").value;
+    const end=$("recapEndDate").value;
+    return {mode,start,end,valid:Boolean(start&&end&&start<=end)};
+  }
+  const month=$("recapMonth").value||today().slice(0,7);
+  return {mode,month,valid:true};
+}
+
 function renderRecap(){
-  const month=$("recapMonth").value||today().slice(0,7),roster=activeRoster();
+  const period=recapPeriod(),roster=activeRoster();
+
+  if(period.mode==="custom"&&!period.valid){
+    $("recapPeriodLabel").textContent="Pilih tanggal mulai dan tanggal akhir yang valid.";
+    $("recapBody").innerHTML='<tr><td colspan="8">Periode belum lengkap.</td></tr>';
+    return;
+  }
+
+  $("recapPeriodLabel").textContent=period.mode==="custom"
+    ? `Periode ${period.start} s.d. ${period.end}`
+    : `Bulan ${monthLabel(period.month)}`;
+
   $("recapBody").innerHTML=roster.map(s=>{
-    const monthly=attendanceRowsForMonth(
-      finalAttendanceRows().filter(x=>String(x.nis)===String(s.nis)),
-      month
-    );
-    const stat=attendanceStats(monthly);
+    const studentRows=finalAttendanceRows().filter(x=>String(x.nis)===String(s.nis));
+    const selected=period.mode==="custom"
+      ? studentRows.filter(x=>x.date>=period.start&&x.date<=period.end)
+      : attendanceRowsForMonth(studentRows,period.month);
+    const stat=attendanceStats(selected);
     return `<tr>
-      <td>${esc(s.nis)}</td>
-      <td>${esc(s.name)}</td>
-      <td>${stat.hadir}</td>
-      <td>${stat.sakit}</td>
-      <td>${stat.izin}</td>
-      <td>${stat.alpa}</td>
-      <td>${stat.total}</td>
-      <td>${stat.percentage}%</td>
+      <td>${esc(s.nis)}</td><td>${esc(s.name)}</td>
+      <td>${stat.hadir}</td><td>${stat.sakit}</td><td>${stat.izin}</td><td>${stat.alpa}</td>
+      <td>${stat.total}</td><td>${stat.percentage}%</td>
     </tr>`;
   }).join("")||'<tr><td colspan="8">Belum ada data.</td></tr>';
 }
