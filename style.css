@@ -120,3 +120,4 @@ label{display:block;font-size:12px;font-weight:800;margin:14px 0 6px}input,selec
   white-space:nowrap;
 }
 .att-row.approved-lock small{color:#426b94}
+.recap-filter{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.recap-custom-range{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.recap-filter select,.recap-filter input{min-height:40px}@media(max-width:600px){.recap-filter,.recap-custom-range{width:100%}.recap-filter select,.recap-filter input{flex:1;min-width:130px}}
